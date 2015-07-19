@@ -1,0 +1,1 @@
+C:\Users\Owner\Desktop\cosmac_1802\a18\a18_win.exe VIPDSKYCLOCKP2.asm -l VIPDSKYCLOCKP2.prn -o VIPDSKYCLOCKP2.hex
