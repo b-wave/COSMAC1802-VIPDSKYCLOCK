@@ -11,7 +11,7 @@
                         ;			(DSKY)Display Keyboard Unit with VIP.  
                         ;	Checksum:	688D
                         ;	CRC-32:	E571B87A
-                        ;	Date:		Sat July18,2015, 11:23:35 PM
+                        ;	Date:		Sun July 19, 2015, 09:44:35 PM
                         ;	CPU:		RCA 1802 (1802 COSMAC family)
                         ;
                         ;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
@@ -915,7 +915,7 @@
    021f   fb 0f         	xri	$0F	;
    0221   32 8c         	bz	SIGNS
                         
-   0223   30 aa          	br	NOHEX ;(ret)
+   0223   30 ac          	br	NOHEX ;(ret)
                         ;	br	CPRET		
    0225                 VERBS:
    0225   f8 00         	ldi	HIGH NOUN_VERB	;Get the pointer to Verb Reg
@@ -1103,86 +1103,86 @@
    028e   b4            	phi	r4
    028f   b5            	phi	r5
    0290   f8 99         	ldi	LOW CDX
-   0292   a4            	plo	r4
+   0292   a5            	plo	r5
                         ;*****************************************************************
-   0293   04            	ldn	r4		; get the digit pointer
-                        ;	plo	r5
-                        ;	ldn	r4		;pick up the current char
+   0293   05            	ldn	r5		; get the digit pointer
+   0294   a4            	plo	r4
+   0295   04            	ldn	r4		;pick up the current char
                         	
-   0294   fa f0         	ani	$f0		; mask off type
-   0296   fb 50         	xri	$50		;are you really a sign?
-   0298   3a 00         	bnz	CPRET 	;NO - then i don't care
+   0296   fa f0         	ani	$f0		; mask off type
+   0298   fb 50         	xri	$50		;are you really a sign?
+   029a   3a 00         	bnz	CPRET 	;NO - then i don't care
                         
-   029a   04            	ldn	r4		;YES- increment the current sign
-   029b   fc 01         	adi	$01		; increment
-   029d   fa f3         	ani	$F3		;mask off 1111 0011 for rollover
-   029f   54            	str	r4		;put new sign back to (M)[ R(4) ]
+   029c   04            	ldn	r4		;YES- increment the current sign
+   029d   fc 01         	adi	$01		; increment
+   029f   fa f3         	ani	$F3		;mask off 1111 0011 for rollover
+   02a1   54            	str	r4		;put new sign back to (M)[ R(4) ]
                         
-   02a0   04            	ldn	r4		;was this the 4th count?
-   02a1   fb 53         	xri	$53		;need to Get rid of extra key stroke
-   02a3   3a 00         	bnz	CPRET		;no -  we are good
+   02a2   04            	ldn	r4		;was this the 4th count?
+   02a3   fb 53         	xri	$53		;need to Get rid of extra key stroke
+   02a5   3a 00         	bnz	CPRET		;no -  we are good
                         
-   02a5   f8 50         	ldi	$50		;yes - back to zero!
-   02a7   54            	str	r4		;
-   02a8   30 00         	br	CPRET	
+   02a7   f8 50         	ldi	$50		;yes - back to zero!
+   02a9   54            	str	r4		;
+   02aa   30 00         	br	CPRET	
                         
                         ;So now that we sorted all possible HEX - it must be a digit
                         ;but we need tocheck to see if a command needs a digit...
                         
-   02aa                 NOHEX:
-   02aa   f8 98         	ldi	LOW CMD	;CMD pointer 
-   02ac   a5            	plo	r5		;Index in R(5.0)
-   02ad   f8 00         	ldi	HIGH CMD	;CMD pointer 
-   02af   b5            	phi	r5		;Index in R(5.1)
+   02ac                 NOHEX:
+   02ac   f8 98         	ldi	LOW CMD	;CMD pointer 
+   02ae   a5            	plo	r5		;Index in R(5.0)
+   02af   f8 00         	ldi	HIGH CMD	;CMD pointer 
+   02b1   b5            	phi	r5		;Index in R(5.1)
                         
-   02b0   05            	ldn	r5
-   02b1   32 00         	bz	CPRET		; No command to process
-   02b3   fb 0a         	xri	$0A
-   02b5   32 c1         	bz	VERCMD
+   02b2   05            	ldn	r5
+   02b3   32 00         	bz	CPRET		; No command to process
+   02b5   fb 0a         	xri	$0A
+   02b7   32 c3         	bz	VERCMD
                         
-   02b7   05            	ldn	r5
-   02b8   fb 0b         	xri	$0B
-   02ba   32 c9         	bz	NOUCMD
+   02b9   05            	ldn	r5
+   02ba   fb 0b         	xri	$0B
+   02bc   32 cb         	bz	NOUCMD
                         
-   02bc   f8 00         	ldi	$00
-   02be   55            	str	r5		;clear it out if it was 
-   02bf   30 00         	br	CPRET		;not a known command...
+   02be   f8 00         	ldi	$00
+   02c0   55            	str	r5		;clear it out if it was 
+   02c1   30 00         	br	CPRET		;not a known command...
                         
                         ;OK so we need a VERB Digit...
-   02c1                 VERCMD:
-   02c1   f8 00         	ldi	HIGH NOUN_VERB	;Get the pointer to Verb Reg
-   02c3   b4            	phi	r4			;to R(4.1)
-   02c4   f8 a7         	ldi	LOW NOUN_VERB+1
-   02c6   a4            	plo	r4			;to R(4.0)
-   02c7   30 cf         	br	NVCM1
+   02c3                 VERCMD:
+   02c3   f8 00         	ldi	HIGH NOUN_VERB	;Get the pointer to Verb Reg
+   02c5   b4            	phi	r4			;to R(4.1)
+   02c6   f8 a7         	ldi	LOW NOUN_VERB+1
+   02c8   a4            	plo	r4			;to R(4.0)
+   02c9   30 d1         	br	NVCM1
                         
                         ;OK so we need a NOUN Digit...
-   02c9                 NOUCMD:
-   02c9   f8 00         	ldi	HIGH NOUN_VERB
-   02cb   b4            	phi	r4
-   02cc   f8 aa         	ldi	LOW NOUN_VERB+4
-   02ce   a4            	plo	r4			;to R(4.0)
+   02cb                 NOUCMD:
+   02cb   f8 00         	ldi	HIGH NOUN_VERB
+   02cd   b4            	phi	r4
+   02ce   f8 aa         	ldi	LOW NOUN_VERB+4
+   02d0   a4            	plo	r4			;to R(4.0)
                         
-   02cf                 NVCM1:
-   02cf   04            	ldn	r4	;get the storage location
-   02d0   fa f0         	ani	$F0	;check to see if new digit is needed	
-   02d2   32 d6         	bz	NEXNV	; no - control is clear so it is loaded
-   02d4   30 e1         	br	WRTNV
+   02d1                 NVCM1:
+   02d1   04            	ldn	r4	;get the storage location
+   02d2   fa f0         	ani	$F0	;check to see if new digit is needed	
+   02d4   32 d8         	bz	NEXNV	; no - control is clear so it is loaded
+   02d6   30 e3         	br	WRTNV
                         
-   02d6                 NEXNV:
-   02d6   14            	inc	r4	;increment storage pointer
-   02d7   04            	ldn	r4	;get the next storage location
-   02d8   fa f0         	ani	$F0	; check for need...	
-   02da   3a e1         	bnz	WRTNV	; yes control is there write new one
-   02dc   f8 00         	ldi	$00	; no control -  then we are done... 
-   02de   55            	str	r5	; kill the command via CMD pointer
-   02df   30 00         	br	CPRET	
+   02d8                 NEXNV:
+   02d8   14            	inc	r4	;increment storage pointer
+   02d9   04            	ldn	r4	;get the next storage location
+   02da   fa f0         	ani	$F0	; check for need...	
+   02dc   3a e3         	bnz	WRTNV	; yes control is there write new one
+   02de   f8 00         	ldi	$00	; no control -  then we are done... 
+   02e0   55            	str	r5	; kill the command via CMD pointer
+   02e1   30 00         	br	CPRET	
                         
-   02e1                 WRTNV:
-   02e1   8e            	glo	re	;finally, get our digit an put it in REG
-   02e2   fa 0f         	ani	$0F	; make double sure no control in MSB
-   02e4   54            	str	r4
-   02e5   30 00         	br	CPRET
+   02e3                 WRTNV:
+   02e3   8e            	glo	re	;finally, get our digit an put it in REG
+   02e4   fa 0f         	ani	$0F	; make double sure no control in MSB
+   02e6   54            	str	r4
+   02e7   30 00         	br	CPRET
                         ;
                         ;=========================================================================
                         ;=============================PAGE 0300===================================
@@ -1612,9 +1612,9 @@
 0095  KEYS          0020  L0014         0053  L001C         0054  L001D     
 0022  L0024         0116  L0066         0122  L0067         012e  L0079     
 013a  L0080         01db  L009A         00da  MET_OFFSETS    019c  MINUS     
-0147  NEXCOL        02d6  NEXNV         0075  NEXTDIG       033d  NEXT_DIG  
-02aa  NOHEX         004e  NOKEY         02c9  NOUCMD        00c0  NOUN      
-022d  NOUNS         00a6  NOUN_VERB     0233  NV001         02cf  NVCM1     
+0147  NEXCOL        02d8  NEXNV         0075  NEXTDIG       033d  NEXT_DIG  
+02ac  NOHEX         004e  NOKEY         02cb  NOUCMD        00c0  NOUN      
+022d  NOUNS         00a6  NOUN_VERB     0233  NV001         02d1  NVCM1     
 00d6  NV_OFFSETS    0198  PLUS          00c2  PROG0         00d3  PROG_OFFSET
 00a0  PROG_REG      024c  PROS          00ac  REG1          00b2  REG2      
 00b8  REG3          00e0  REG_LINE      03bf  S3LOOP        03ae  SET3      
@@ -1622,8 +1622,8 @@
 0021  STARTCLK      01cd  TV_INT        01cb  TV_INT_ret    0325  V16       
 0349  V21           034d  V22           0351  V23           0353  V2N       
 0364  V2XCLRL       0386  V35           00be  VERB          0225  VERBS     
-02c1  VERCMD        01c6  VIDEO_LINE    0102  VIP_DS        0100  VIP_DS_RET
-02e1  WRTNV         019e  WS000         019f  WS001         01ab  WS002     
+02c3  VERCMD        01c6  VIDEO_LINE    0102  VIP_DS        0100  VIP_DS_RET
+02e3  WRTNV         019e  WS000         019f  WS001         01ab  WS002     
 01b9  WSBAR         8110  bitmap        8100  index         0000  r0        
 0001  r1            000a  r10           000b  r11           000c  r12       
 000d  r13           000e  r14           000f  r15           0002  r2        
@@ -1631,4 +1631,4 @@
 0007  r7            0008  r8            0009  r9            000a  ra        
 000b  rb            000c  rc            000d  rd            000e  re        
 000f  rf            0000  start         
-Enter file contents here
+
