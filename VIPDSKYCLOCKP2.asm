@@ -11,7 +11,7 @@
 ;			(DSKY)Display Keyboard Unit with VIP.  
 ;	Checksum:	688D
 ;	CRC-32:	E571B87A
-;	Date:		Sat July ‎18, ‎2015, ‏‎11:23:35 PM
+;	Date:		Sun July 19, 2015, 09:44:35 PM
 ;	CPU:		RCA 1802 (1802 COSMAC family)
 ;
 ;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
@@ -1098,11 +1098,11 @@ SIGNS:
 	phi	r4
 	phi	r5
 	ldi	LOW CDX
-	plo	r4
+	plo	r5
 ;*****************************************************************
-	ldn	r4		; get the digit pointer
-;	plo	r5
-;	ldn	r4		;pick up the current char
+	ldn	r5		; get the digit pointer
+	plo	r4
+	ldn	r4		;pick up the current char
 	
 	ani	$f0		; mask off type
 	xri	$50		;are you really a sign?
