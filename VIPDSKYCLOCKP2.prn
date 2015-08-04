@@ -1,4 +1,4 @@
-                        ;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
+   0000                 ;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
                         ;
                         ;	File:		VIPDSKYCLOCKP2.asm
                         ;
@@ -11,31 +11,36 @@
                         ;			(DSKY)Display Keyboard Unit with VIP.  
                         ;	Checksum:	688D
                         ;	CRC-32:	E571B87A
-                        ;	Date:		Sun July 19, 2015, 09:44:35 PM
+                        ;	Versions:
+                        ;	Date:		Tuesday, July 21, 2015, 11:10:53 PM 
                         ;	CPU:		RCA 1802 (1802 COSMAC family)
                         ;
                         ;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
                         
-                         
-                        ;
+                        ;--------------------------------------------------------------------------
+                        ;	Versions:
+                        ;	1.3	Date:	Tuesday, July 21, 2015, 11:10:53 PM - Added NOUNs 65, 36, Keys:  "D", "E", "F" 
+                        ;	1.2 	Date:	Sunday, July 19, 2015, 09:44:35 PM - First Release. Only VERBs 16, 35, 36, KEYs "A", "B"
+                        ;	1.1 	Date:	Saturday, July 11, 2015, 12:43:52 PM - MET Clock with formatting
+   0000                 ;	1.0 	Date:	Sunday, Sunday, June 28, 2015, 8:16:02 AM - MET Clock Display only
                         ;
                         ;****************************(DO NOT MODIFY)**************************************
    0000                 r0		EQU	0	;DMA address 
    0001                 r1		EQU	1	;Interrupt Address 
    0002                 r2		EQU	2	;Stack 
-   0003                 r3		EQU	3	;Program Counter 
-                        ;****************************Gerneral Use registers****************************
-   0004                 r4		EQU	4	;Memory Pointer
-   0005                 r5		EQU	5	;Memory Pointer
-   0006                 r6		EQU	6	;Memory Pointer- ALSO USED TO STOrE VAr INST
-   0007                 r7		EQU	7	;Memory Pointer - HOLDS VAr INSTrUCTION
+   0003                 r3		EQU	3	;MAIN Program Counter (PC)
+                        ;****************************(DO NOT MODIFY)**************************************
+   0004                 r4		EQU	4	;INDEX
+   0005                 r5		EQU	5	;COUNTERs
+   0006                 r6		EQU	6	;Memory Pointer #1- ALSO USED TO STOrE VAr INST
+   0007                 r7		EQU	7	;Memory Pointer #2- HOLDS VAr INSTrUCTION
    0008                 r8		EQU	8	;counter in display routine
-   0009                 r9		EQU	9	;counts 61 times per sec - in interrupt (DO NOT MODIFY)
+   0009                 r9		EQU	9	;INTERRUPT COUNTER  - 61 times per sec in interrupt (DO NOT MODIFY)
    000a                 ra		EQU	10	;
    000b                 rb		EQU	11	;
-   000c                 rc		EQU	12	;CONTROL PC
-   000d                 rd		EQU	13	;DISPLAY PC
-   000e                 re		EQU	14	;
+   000c                 rc		EQU	12	;Second PC -> Returns control to MAIN PC (R3)
+   000d                 rd		EQU	13	;Third PC -> Returns control to RC
+   000e                 re		EQU	14	;KEY Press Result
    000f                 rf		EQU	15	;
                         ; Redundant reg defines...
    000a                 r10		EQU	10	;
@@ -45,8 +50,10 @@
    000e                 r14		EQU	14	;
    000f                 r15		EQU	15	;
                         
-                        
-                        
+                        ;
+                        ;=========================================================================
+                        ;=============================PAGE 0000===================================
+                        ;=========================================================================
    0000                 	org	$0000
                         ;
    0000                 start:
@@ -210,7 +217,7 @@
    0058   b6            	phi	r6		;R6.1 
    0059   b7            	phi	r7		;R7.1 
                         
-   005a   f8 9f         	ldi	HHMMSS+5	;Time stored in RAM (HH:MM:SS))
+   005a   f8 a0         	ldi	HHMMSS+5	;Time stored in RAM (HH:MM:SS))
    005c   a4            	plo	r4		;R(4) will be the index
                         ;	plo	r5
    005d   e4             	sex	r4	 	;make R(4) the X Reg
@@ -238,7 +245,7 @@
    0073   73            	stxd			;then store it time(x) and decrement pointer
    0074   84            	glo	r4		;check was this the last digit? (x=HHMMSS)
    0075                 NEXTDIG:
-   0075   fb 99         	xri	HHMMSS-1
+   0075   fb 9a         	xri	HHMMSS-1
    0077   3a 5e         	bnz	DIGIT		;No, get next digit
                         ;	br	FXDISP	;Yes, check if Hours = 24
                         
@@ -253,26 +260,26 @@
                         ;
                         
    0079                 FXDISP:			; fix for current display move mem into RA -> RF
-   0079   f8 9a         	ldi	HHMMSS
+   0079   f8 9b         	ldi	HHMMSS
    007b   a4            	plo	r4
    007c   72            	ldxa			;Pick up 10's hours digit
    007d   f6            	shr			;01 >> 0 + DF
    007e   f6            	shr			;check for hour 20: (Bit 0010)
-   007f   3b c3         	bnf	DISPLAY 	;still <20: - not there yet just update the display!
+   007f   3b c4         	bnf	DISPLAY 	;still <20: - not there yet just update the display!
                         
    0081   72            	ldxa			;Pick up 1's Hours
    0082   fb 04         	xri	$04		;is it the hour 24:00?
-   0084   3a c3         	bnz	DISPLAY 	; Nope keep going...
+   0084   3a c4         	bnz	DISPLAY 	; Nope keep going...
                         
                         ;... it's zero hour midnight!
                         
-   0086   f8 9a         	ldi 	HHMMSS
+   0086   f8 9b         	ldi 	HHMMSS
    0088   a4            	plo	r4	;then store it time(x) and decrement pointer
    0089   f8 00         	ldi 	$00
    008b   54            	str	r4
    008c   14            	inc	r4
    008d   54            	str	r4	; fall through to display... 
-   008e   30 c3         	br	DISPLAY
+   008e   30 c4         	br	DISPLAY
                         ;======================================================
                         ;
                         ;		PAGE 0 RAM BUFFERS
@@ -293,8 +300,10 @@
    0095   00 00 00      	db 	$00, $00, $00
    0098                 CMD:
    0098   00            	db 	$00
-   0099                 CDX:
+   0099                 CDEX:
    0099   00            	db 	$00
+   009a                 CCNT:
+   009a   00            	db 	$00
                         ;********************************************
                         ;		RTC COUNTERS
                         ;********************************************
@@ -302,10 +311,13 @@
                         ; Note: it is set to 23:59:58 on reset 
                         ;       to test the big rollover
                         ;********************************************
-   009a                 HHMMSS:
-   009a   02 03         	db	$02, $03	;Hours HH
-   009c   05 09         	db 	$05, $09	;Minutes MM
-   009e   05 08         	db	$05, $08	;Seconds SS
+   009b                 HHMMSS:
+   009b                 HH:
+   009b   02 03         	db	$02, $03	;Hours HH
+   009d                 MM:
+   009d   05 09         	db 	$05, $09	;Minutes MM
+   009f                 SS:
+   009f   05 08         	db	$05, $08	;Seconds SS
                         
                         ;******DAY COUNTER 000 -> 365(6) can go here...
                         ;but remember 366 day leap years? 2016, 2020, 2024,2028, 2032...
@@ -332,37 +344,38 @@
                         ;     	-------------------------------
                         ;DIGI=	SD5	D5	D4	D3	D2	D1
                         ;+ADD=	+0	+1	+2	+3	+4	+5
-                        ;     	-------------------------------
-   00a0                 PROG_REG:
-   00a0   c0 a1 c2 c3   	db	$C0,	$A1,	$C2,	$C3,	$00,	$00
-   00a4   00 00         
+                        ;          -------------------------------
+   00a1                 PROG_REG:
+   00a1   c0 a1 c2 c3   	db	$C0,	$A1,	$C2,	$C3,	$00,	$00
+   00a5   00 00         
                         
-   00a6                 NOUN_VERB:	
+   00a7                 NOUN_VERB:	
                         ;	db	$C0,	$00,	$00,	$C0,	$00,	$00	;Display default with A=00 and B=00
-   00a6   c0 fa fa cd   	db	$C0,	$FA,	$FA,	$CD,	$FB,	$FB	;Display default with flashing AA BB
-   00aa   fb fb         
+   00a7   c0 fa fa c0   	db	$C0,	$FA,	$FA,	$C0,	$FB,	$FB	;Display default with flashing AA BB
+   00ab   fb fb         
                         ;
-                        ;====================LINE=======================
+                        ;====================LINE=======================+
+                        
                         ;
                         
-   00ac                 REG1:
-   00ac   52 00 00 00   	db	$52,	$00,	$00,	$00,	$00,	$00	
-   00b0   00 00         
-   00b2                 REG2:
-   00b2   51 00 00 00   	db	$51,	$00,	$00,	$00,	$00,	$00
-   00b6   00 00         
-   00b8                 REG3:
-   00b8   52 00 00 00   	db	$52,	$00,	$00,	$00,	$00,	$00
-   00bc   00 00         
+   00ad                 REG1:
+   00ad   52 00 00 00   	db	$52,	$00,	$00,	$00,	$00,	$00	
+   00b1   00 00         
+   00b3                 REG2:
+   00b3   51 00 00 00   	db	$51,	$00,	$00,	$00,	$00,	$00
+   00b7   00 00         
+   00b9                 REG3:
+   00b9   52 00 00 00   	db	$52,	$00,	$00,	$00,	$00,	$00
+   00bd   00 00         
                         
                         ;**** Add more VERB/NOUN storage to do more levels...
-   00be                 VERB:
-   00be   00 00         	db	$00,	$00
-   00c0                 NOUN:
-   00c0   00 00         	db	$00,	$00
+   00bf                 VERB:
+   00bf   00 00         	db	$00,	$00
+   00c1                 NOUN:
+   00c1   00 00         	db	$00,	$00
                         
-   00c2                 PROG0:
-   00c2   00            	db	$00
+   00c3                 PROG0:
+   00c3   00            	db	$00
                         
                         
                         ;
@@ -374,7 +387,7 @@
                         ;This is the Simulation tasks for VIP_DSKY runs with these these two 
                         ;subroutines arebcalled to create and format the desired displays.
                         ;
-                        ;1) AGC_PROC1= this subrutine simulates some AGC functions to give the
+                        ;1) AGC_PROC1= this subroutine simulates some AGC functions to give the
                         ;               display process somthing to display. 
                         ;2) VIP_DS	 = This subroutine simulates the DIS part of the DSKY on a 
                         ;             COSMAC VIP Display.
@@ -387,25 +400,22 @@
                         ;
                         ;************************************************************************
                         
-   00c3                 DISPLAY:
+   00c4                 DISPLAY:
                         
-                        ;/////////////////NEW//////////////////////////////
-   00c3   f8 03         	ldi 	HIGH AGC_PROC1	;AGC PROCESS DEMO Sub Page
-   00c5   bd            	phi	rd
-   00c6   f8 01         	ldi 	LOW AGC_PROC1	;AGC PROCESS DEMO Sub entry
-   00c8   ad            	plo	rd
-   00c9   dd            	sep 	rd			;call AGC DEMO PC = R(D) now
+   00c4   f8 03         	ldi 	HIGH AGC_PROC1	;AGC PROCESS DEMO Sub Page
+   00c6   bd            	phi	rd
+   00c7   f8 01         	ldi 	LOW AGC_PROC1	;AGC PROCESS DEMO Sub entry
+   00c9   ad            	plo	rd
+   00ca   dd            	sep 	rd			;call AGC DEMO PC = R(D) now
                         
-                        
-                        
-   00ca   f8 02         	ldi 	LOW VIP_DS		;DSKY DISPLAY Sub Page
-   00cc   ad            	plo	rd
-   00cd   f8 01         	ldi 	HIGH VIP_DS	;DSKY DISPLAY Sub entry
-   00cf   bd            	phi	rd
+   00cb   f8 02         	ldi 	LOW VIP_DS		;DSKY DISPLAY Sub Page
+   00cd   ad            	plo	rd
+   00ce   f8 01         	ldi 	HIGH VIP_DS	;DSKY DISPLAY Sub entry
+   00d0   bd            	phi	rd
                         	
-   00d0   dd            	sep 	rd			;call DiS play! PC = R(D) now
+   00d1   dd            	sep 	rd			;call DiS play! PC = R(D) now
                         
-   00d1   30 22         	br	L0024		; returns here -> continue!
+   00d2   30 22         	br	L0024		; returns here -> continue!
                         
                         ;==============================================================
                         ;======================== CONSTANTS =========================== 
@@ -415,30 +425,30 @@
                         ;
                         ;********************************************
                         
-   00d3                 PROG_OFFSET:
-   00d3   a1            	DB	LOW PROG_REG+1	;ACTY
-   00d4   a4            	DB	LOW PROG_REG+4	;P1.D1
-   00d5   a5            	DB	LOW PROG_REG+5	;P1.D0
-   00d6                 NV_OFFSETS:
-   00d6   a6            	DB	LOW NOUN_VERB+0
-   00d7   a7            	DB	LOW NOUN_VERB+1
-   00d8   aa            	DB	LOW NOUN_VERB+4
-   00d9   ab            	DB	LOW NOUN_VERB+5
-   00da                 MET_OFFSETS:
+   00d4                 PROG_OFFSET:
+   00d4   a2            	DB	LOW PROG_REG+1	;ACTY
+   00d5   a5            	DB	LOW PROG_REG+4	;P1.D1
+   00d6   a6            	DB	LOW PROG_REG+5	;P1.D0
+   00d7                 NV_OFFSETS:
+   00d7   a7            	DB	LOW NOUN_VERB+0
+   00d8   a8            	DB	LOW NOUN_VERB+1
+   00d9   ab            	DB	LOW NOUN_VERB+4
+   00da   ac            	DB	LOW NOUN_VERB+5
+   00db                 MET_OFFSETS:
                         	
-   00da   b0            	DB	LOW REG1+4	;10's HRs R1.D1
-   00db   b1            	DB	LOW REG1+5	; 1's HRs R1.D0
-   00dc   b6            	DB	LOW REG2+4	;10's MINs R2.D1
-   00dd   b7            	DB	LOW REG2+5	; 1's MINs R2.D0
-   00de   ba            	DB	LOW REG3+2	;10's SECs R3.D3
-   00df   bb            	DB	LOW REG3+3	; 1's SECs R3.D2
+   00db   b1            	DB	LOW REG1+4	;10's HRs R1.D1
+   00dc   b2            	DB	LOW REG1+5	; 1's HRs R1.D0
+   00dd   b7            	DB	LOW REG2+4	;10's MINs R2.D1
+   00de   b8            	DB	LOW REG2+5	; 1's MINs R2.D0
+   00df   bb            	DB	LOW REG3+2	;10's SECs R3.D3
+   00e0   bc            	DB	LOW REG3+3	; 1's SECs R3.D2
                         
-   00e0                 REG_LINE:
-   00e0   a0            	DB	LOW PROG_REG
-   00e1   a6            	DB	LOW NOUN_VERB
-   00e2   ac            	DB	LOW REG1
-   00e3   b2            	DB	LOW REG2
-   00e4   b8            	DB	LOW REG3
+   00e1                 REG_LINE:
+   00e1   a1            	DB	LOW PROG_REG
+   00e2   a7            	DB	LOW NOUN_VERB
+   00e3   ad            	DB	LOW REG1
+   00e4   b3            	DB	LOW REG2
+   00e5   b9            	DB	LOW REG3
                         ;
                         ;=========================================================================
                         ;=============================PAGE 0100===================================
@@ -510,7 +520,7 @@
    0107   b7            	phi	r7			;
    0108   ba            	phi	ra
    0109   bc            	phi	rc
-   010a   f8 e0         	ldi	LOW REG_LINE	;First digit's offset
+   010a   f8 e1         	ldi	LOW REG_LINE	;First digit's offset
    010c   a7            	plo	r7			;DIGIT NIBBLE POINTER (SOURCE)
                         
    010d   f8 01         	ldi	HIGH VIDEO_LINE	;Point to video Page locations
@@ -518,7 +528,7 @@
    0110   f8 c6         	ldi	LOW VIDEO_LINE	;Point to first location
    0112   a6            	plo	r6			;
                         
-   0113   f8 04         	ldi	HIGH DSKY_L1	;INDEX point to RAM display page (0300) to store
+   0113   f8 05         	ldi	HIGH DSKY_L1	;INDEX point to RAM display page (0300) to store
    0115   b4            	phi	r4			; patterns for char PATTERN lines on the DSKY
                         
                         	
@@ -616,13 +626,22 @@
    0166   32 89         	bz	SIGN		;"+, -" or clear
                         
    0168   85            	glo	r5
-   0169   fb a0         	xri	$A0
+   0169   fb a0         	xri	$A0		;"PROG INDIC" 
    016b   32 7e         	bz	INDC_A	;flashing cursor
                         
-                        ;***********NOTE***************************
-                        ;also other display indicators "Dx" 
-                        ;these may be 4 lines vs. 5 lines
-                        ;*****************************************
+                        ;************************NOT USED IN THIS VERSION***************************************
+                        ;also display indicators "$B0" 
+                        ;are the indicator "bulbs"
+                        ;these may be 4 lines vs. 5 lines?
+                        ;locate on left hand displays
+                        ;$FE pattern
+                        ;[UPLINK] [NO ATT][KEY REL] [OPR ERR] 
+                        ;[TEMP] [PROG] [ALT] [VEL]
+                        ;
+                        ;	glo	r5
+                        ;	xri	$B0		;Status [Bulbs]
+                        ;	bz	INDC_B	;
+                        ;************************NOT USED IN THIS VERSION***************************************
                         
                         ;ELSE: just fall through here for un implemented or unknown
                         	
@@ -800,7 +819,7 @@
                         
    01d4   19            	inc	r9	;increment at 1/61 sec count
                         
-   01d5   f8 04         	ldi	HIGH DSKY_L1	; Point to Page # of VIDEO DISP
+   01d5   f8 05         	ldi	HIGH DSKY_L1	; Point to Page # of VIDEO DISP
    01d7   b0            	phi	r0			; display RAM
    01d8   f8 00         	ldi	$00
    01da   a0            	plo	r0
@@ -827,8 +846,10 @@
                         ;=============================PAGE 0200===================================
                         ;=========================================================================
                         
+   0200                 	org	$0200
+                        
                         ;************************************************************************
-                        ; VIP_KY
+                        ; 						VIP_KY
                         ;************************************************************************
                         ;Description: This is the KeY part of DSKY. Since COSMAC VIP only has 16
                         ; keys, some are reused  The secondary command keys (& Key) are contextual
@@ -836,14 +857,6 @@
                         ; 
                         ;Use: This computer use a series of commands in the format
                         ; 	Vxx <Enter>  Nxx <enter>
-                        
-                        ;	several keys outside the normal Hex keys were:
-                        ;	A = Verb
-                        ;	B = Noun
-                        ;	C = Clear (& RST)
-                        ;	D = Key Rel (& Proceed)
-                        ;	E = Enter (& -)
-                        ;	F = +/-
                         ; 
                         ;EXAMPLES:
                         ;  "A", (V1V2 go blank) V1, V2,"C"(Clear: start over), V1, V2... 
@@ -858,7 +871,6 @@
                         ;
                         ;************************************************************************
                         
-   0200                 	org	$0200
                         
                         ;****************************************************************
                         ; COMMAND PROCESSING (PINBALL)
@@ -884,6 +896,7 @@
                         ;  R(E) = Character found by key 
                         
                         ;****************************************************************
+                        
    0200                 CPRET:
    0200   d3            	sep	r3
    0201                 CPROC:
@@ -892,41 +905,41 @@
    0204   ae            	plo	re	;save the key for test
                         
    0205   8e            	glo	re
-   0206   fb 0a         	xri	$0A	;
+   0206   fb 0a         	xri	$0A	;A = VERB
    0208   32 25         	bz	VERBS	
                         
    020a   8e            	glo	re
-   020b   fb 0b         	xri	$0B	;
+   020b   fb 0b         	xri	$0B	;B = NOUN
    020d   32 2d         	bz	NOUNS
                         
    020f   8e            	glo	re
-   0210   fb 0c         	xri	$0C	;
-   0212   32 4a         	bz	CONS
+   0210   fb 0c         	xri	$0C	;C = CLEAR or REL
+   0212   32 4f         	bz	CONS
                         
    0214   8e            	glo	re
-   0215   fb 0d         	xri	$0D	;
-   0217   32 4c         	bz	PROS
+   0215   fb 0d         	xri	$0D	;D = PROCEED
+   0217   32 5c         	bz	PROS
                         	
    0219   8e            	glo	re
-   021a   fb 0e         	xri	$0E	;
-   021c   32 6b         	bz	ENTER
+   021a   fb 0e         	xri	$0E	;E = Enter
+   021c   32 83         	bz	ENTER
                         
    021e   8e            	glo	re
-   021f   fb 0f         	xri	$0F	;
-   0221   32 8c         	bz	SIGNS
+   021f   fb 0f         	xri	$0F	;F = +/-
+   0221   32 ab         	bz	SIGNS
                         
-   0223   30 ac          	br	NOHEX ;(ret)
+   0223   30 cb          	br	NOHEX ;(return)
                         ;	br	CPRET		
    0225                 VERBS:
    0225   f8 00         	ldi	HIGH NOUN_VERB	;Get the pointer to Verb Reg
    0227   b4            	phi	r4			;to R(4.1)
-   0228   f8 a7         	ldi	LOW NOUN_VERB+1
+   0228   f8 a8         	ldi	LOW NOUN_VERB+1
    022a   a4            	plo	r4			;to R(4.0)
-   022b   30 33         	br NV001
+   022b   30 33         	br 	NV001
    022d                 NOUNS:
    022d   f8 00         	ldi	HIGH NOUN_VERB
    022f   b4            	phi	r4
-   0230   f8 aa         	ldi	LOW NOUN_VERB+4
+   0230   f8 ab         	ldi	LOW NOUN_VERB+4
    0232   a4            	plo	r4			;to R(4.0)
                         
    0233                 NV001:
@@ -943,6 +956,7 @@
                         
                         ; this section was put in to stop flash on NN
                         ; not needed *ONLY for test*
+                        
                         ;	ldi	LOW NOUN_VERB+4 ; Point to Nouns;
                         ;	plo	r4
                         ;	ldn	r4		;get N1.1
@@ -968,52 +982,45 @@
                         ;place...i.e. digits with no where to go get ignored!
                         ;===========================================================
                         
-   0240   f8 00         	ldi	HIGH CMD	;put in CMD storage 
+   0240   f8 00         	ldi	HIGH CMD	;put in CMD storage (PAGE 0)
    0242   b5            	phi	r5		;Index in R(4.1)
    0243   f8 98         	ldi	LOW CMD	;put in CMD storage 
    0245   a5            	plo	r5		;Index in R(4,0)
    0246   8e            	glo	re		;Verb or Noun Command 
    0247   55            	str	r5
-   0248   30 00         	br	CPRET	
+                        ;///NEW///
+   0248   f8 9a         	ldi	LOW CCNT	;Make sure we are not storing digits
+   024a   a5            	plo	r5	
+   024b   95            	ghi	r5		;should be 0
+   024c   55            	str	r5
+                        ;///NEW///
+   024d   30 00         	br	CPRET	
                         
-                        ;NOUNS:
-                        ;	ldi	HIGH NOUN_VERB
-                        ;	phi	r4
-                        ;	ldi	LOW NOUN_VERB+4
-                        ;	plo	r4
-                        ;	ldn	r4
-                        ;	ani	$0f	;Mask any control bits
-                        ;	adi	$f0
-                        ;	str	r4
-                        ;	inc	r4
-                        ;	ldn	r4
-                        ;	ani	$0f	;Mask any control bits
-                        ;	adi	$f0
-                        ;	str	r4
-                        ;
-                        ;
-                        ;	ldi	LOW NOUN_VERB+1
-                        ;	plo	r4
-                        ;	ldn	r4
-                        ;	ani	$0F	
-                        ;	str	r4
-                        ;	inc	r4
-                        ;	ldn	r4
-                        ;	ani	$0F	
-                        ;	str	r4
-                        ;
-                        ;	ldi	LOW CMD	;Still page 0
-                        ;	plo	r4
-                        ;	glo	re	;Noun Command 
-                        ;	str	r4
-                        ;	br	CPRET	
                         
-   024a                 CONS:
-   024a   30 00         	br	CPRET	
-                        
-                        ;/////////////////NEW////////////////////////////
                         ;************************************************
-                        ;*************PROCEED KEY************************
+                        ;*************[C] CLEAR KEY**********************
+                        ;************************************************
+                        ;USE: This key clears the current register 
+                        ;it Restarts the last input "2x" command in VERB  
+                        ;the display gets clear and restarts the REG line.
+                        ;************************************************
+                        
+   024f                 CONS:
+   024f   f8 04         	ldi	HIGH CFLASHVN
+   0251   bd            	phi	rd
+   0252   f8 ab         	ldi	LOW CFLASHVN	; 
+   0254   ad            	plo	rd	
+   0255   dd            	sep	rd
+                        
+   0256   f8 ca         	ldi	LOW SAVTIME
+   0258   ad            	plo	rd	
+   0259   dd            	sep	rd
+                        
+   025a   30 00         	br	CPRET		;No -  just exit
+                        ;	br	ENTER		;Reset the line	
+                        
+                        ;************************************************
+                        ;*************[D] PROCEED KEY********************
                         ;************************************************
                         ;This key kills the last command in VERB+1 
                         ;so the display gets returned to the original task.
@@ -1024,165 +1031,170 @@
                         ;*************************************************
                         
                         
-   024c                 PROS:
-   024c   f8 bf         	ldi	LOW VERB+1		; CLEAR VERB+1 (last command running)
-   024e   a5            	plo	r5
-   024f   f8 00         	ldi	HIGH $00		;these are on page 0
-   0251   b5             	phi	r5
-   0252   55            	str	r5
-   0253   f8 c1         	ldi	LOW NOUN+1		;Clear that Noun too.
-   0255   a5            	plo	r5
-   0256   55            	str	r5
+   025c                 PROS:
+   025c   f8 c0         	ldi	LOW VERB+1		; CLEAR VERB+1 (last command running)
+   025e   a5            	plo	r5
+   025f   f8 00         	ldi	HIGH $00		;these are on page 0
+   0261   b5             	phi	r5
+   0262   55            	str	r5
+   0263   f8 c2         	ldi	LOW NOUN+1		;Clear that Noun too.
+   0265   a5            	plo	r5
+   0266   55            	str	r5
                         
-   0257   f8 a7         	ldi	NOUN_VERB+1	;TESTVERB LAMPS
-   0259   a4            	plo	r4
-   025a   04            	ldn	r4	
-   025b   fb f8         	xri	$F8
-   025d   32 61         	bz	CLRTST	;are we doing a lamp test?
-   025f   30 00         	br	CPRET		;No just exit
+   0267   f8 a8         	ldi	NOUN_VERB+1	;If Recent TEST LAMPS
+   0269   a4            	plo	r4			;YES- "D" KEY will stop it now
+   026a   04            	ldn	r4	
+   026b   fb f8         	xri	$F8		;Yes- CLEARS the ALL BALLS NOUN
+   026d   32 71         	bz	CLRTST	;are we doing a lamp test?
+   026f   30 00         	br	CPRET		;No -  just exit
                         
-   0261                 CLRTST:			;YES- "D" KEY will stop it now
+   0271                 CLRTST:			
                         ;	ldi	$00
-   0261   54            	str	r4		;R(4) should be pointing to VERB
-   0262   14            	inc	r4		;CLEARS the ALL BALLS in VERB	
-   0263   54            	str	r4
+   0271   54            	str	r4		;R(4) should be pointing to VERB
+   0272   14            	inc	r4		;CLEARS the ALL BALLS in VERB	
+   0273   54            	str	r4
                         
-   0264   14            	inc	r4	;CLEARS the ALL BALLS NOUN
-   0265   14            	inc	r4	
-   0266   54            	str	r4
-   0267   14            	inc	r4	
-   0268   54            	str	r4
-   0269   30 00         	br	CPRET	
-                        ;/////////////////NEW////////////////////////////
+   0274   14            	inc	r4		
+   0275   14            	inc	r4	
+   0276   54            	str	r4
+   0277   14            	inc	r4	
+   0278   54            	str	r4
+                        
+   0279   f8 a5         	ldi	PROG_REG+4	;Point to prog
+   027b   a4            	plo	r4
+                        
+   027c   f8 00         	ldi	$00		;ZERO to PROG
+   027e   54            	str	r4
+   027f   14            	inc	r4	
+   0280   54            	str	r4
+   0281   30 00         	br	CPRET	
+                        
                         
                         
                         ;************************************************
-                        ;*************ENTER KEY***********************
+                        ;*************[E] ENTER KEY**********************
                         ;************************************************
-                        ;Assemble VERB and NOUN Bytes and flag to execute!
-                        ;non zero in the VERB will be teh FLAG to run
-   026b                 ENTER:
-                        
-                        
-   026b   f8 00         	ldi	HIGH $00		;these are on page 0
-   026d   b5             	phi	r5
-   026e   f8 a7         	ldi	LOW NOUN_VERB+1	; Get current VERB Nybbles
-   0270   a5            	plo	r5
-   0271   f8 be         	ldi	LOW VERB		; VERB storage 
-   0273   a4            	plo	r4
-   0274   e5            	sex	r5
+                        ;(1)Assemble VERB and NOUN Bytes and flag to 
+                        ;execute! putting a non-zero in the VERB will be 
+                        ;the FLAG for it to run
+                        ;(2) Also used to {E}nter the REG line in 2N VERBs
+                        ;************************************************
+   0283                 ENTER:
+   0283   f8 04         	ldi	HIGH CFLASHVN
+   0285   bd            	phi	rd
+   0286   f8 ab         	ldi	LOW CFLASHVN	; 
+   0288   ad            	plo	rd	
+   0289   dd            	sep	rd
+                        ;this is to store REG will go here
+                        ;	
+                        ;	ghi	r5		;should be 0
+                        ;;	str	r5
+                        ;	br	CPRET	
+   028a                 ASSEM:
+   028a   f8 00         	ldi	HIGH $00		;these are on page 0
+   028c   b5             	phi	r5
+   028d   f8 a8         	ldi	LOW NOUN_VERB+1	; Get current VERB Nybbles
+   028f   a5            	plo	r5
+   0290   f8 bf         	ldi	LOW VERB		; VERB storage 
+   0292   a4            	plo	r4
+   0293   e5            	sex	r5
                         ;assemble the VERB
-   0275   72            	LDXA			;load via R5(X) -> X+1 point to next
-   0276   fe            	shl             ;shift it into high nibble
-   0277   fe            	shl
-   0278   fe            	shl	
-   0279   fe            	shl
-   027a   f1            	or			;combine nibbles
-   027b   54            	str	r4		;store via R(4)
+   0294   72            	LDXA			;load via R5(X) -> X+1 point to next
+   0295   fe            	shl             ;shift it into high nibble
+   0296   fe            	shl
+   0297   fe            	shl	
+   0298   fe            	shl
+   0299   f1            	or			;combine nibbles
+   029a   54            	str	r4		;store via R(4)
                         
                         ;assemble the NOUN
-   027c   f8 aa         	ldi	LOW NOUN_VERB+4	; Get current VERB Nybbles
-   027e   a5            	plo	r5
-   027f   f8 c0         	ldi	LOW NOUN		; NOUN storage 
-   0281   a4            	plo	r4
-   0282   72            	LDXA
-   0283   fe            	shl             	;shift it into high nibble
-   0284   fe            	shl
-   0285   fe            	shl	
-   0286   fe            	shl
-   0287   f1            	or
-   0288   54            	str	r4		;store via x
-   0289   e2            	sex	r2		;Reset X
+   029b   f8 ab         	ldi	LOW NOUN_VERB+4	; Get current VERB Nybbles
+   029d   a5            	plo	r5
+   029e   f8 c1         	ldi	LOW NOUN		; NOUN storage 
+   02a0   a4            	plo	r4
+   02a1   72            	LDXA
+   02a2   fe            	shl             	;shift it into high nibble
+   02a3   fe            	shl
+   02a4   fe            	shl	
+   02a5   fe            	shl
+   02a6   f1            	or
+   02a7   54            	str	r4		;store via x
+   02a8   e2            	sex	r2		;Reset X
                         
-   028a   30 00         	br	CPRET	
                         
-   028c                 SIGNS:
-                        ;*****************************************************************
-                        ;**NOTE** FOR TEST ONLY WE CAN ENTER WITH POINTER TO THE SIGN CHAR
-   028c   f8 00         	ldi	HIGH REG1 ; Let's use 1st sign for test....
-   028e   b4            	phi	r4
-   028f   b5            	phi	r5
-   0290   f8 99         	ldi	LOW CDX
-   0292   a5            	plo	r5
-                        ;*****************************************************************
-   0293   05            	ldn	r5		; get the digit pointer
-   0294   a4            	plo	r4
-   0295   04            	ldn	r4		;pick up the current char
+   02a9   30 00         	br	CPRET	
+                        ;************************************************
+                        ;*************[F] +/-SIGN KEY********************
+                        ;************************************************
+                        ;Processes the a change of SIGN
+                        ;Pressing the F key cycles thru all combinations
+                        ;of the SIGN in the REGisters it only works on
+                        ;digits that have 5X Control byte set. 
+                        ;************************************************
+                        
+   02ab                 SIGNS:
+                        
+   02ab   f8 00         	ldi	HIGH REG1 ; Let's use 1st sign for test....
+   02ad   b4            	phi	r4
+   02ae   b5            	phi	r5
+   02af   f8 99         	ldi	LOW CDEX
+   02b1   a5            	plo	r5
+                        
+   02b2   05            	ldn	r5		; get the digit pointer
+   02b3   a4            	plo	r4
+   02b4   04            	ldn	r4		;pick up the current char
                         	
-   0296   fa f0         	ani	$f0		; mask off type
-   0298   fb 50         	xri	$50		;are you really a sign?
-   029a   3a 00         	bnz	CPRET 	;NO - then i don't care
+   02b5   fa f0         	ani	$f0		; mask off type
+   02b7   fb 50         	xri	$50		;are you really a sign?
+   02b9   3a 00         	bnz	CPRET 	;NO - then i don't care
                         
-   029c   04            	ldn	r4		;YES- increment the current sign
-   029d   fc 01         	adi	$01		; increment
-   029f   fa f3         	ani	$F3		;mask off 1111 0011 for rollover
-   02a1   54            	str	r4		;put new sign back to (M)[ R(4) ]
+   02bb   04            	ldn	r4		;YES- increment the current sign
+   02bc   fc 01         	adi	$01		; increment
+   02be   fa f3         	ani	$F3		;mask off 1111 0011 for rollover
+   02c0   54            	str	r4		;put new sign back to (M)[ R(4) ]
                         
-   02a2   04            	ldn	r4		;was this the 4th count?
-   02a3   fb 53         	xri	$53		;need to Get rid of extra key stroke
-   02a5   3a 00         	bnz	CPRET		;no -  we are good
+   02c1   04            	ldn	r4		;was this the 4th count?
+   02c2   fb 53         	xri	$53		;need to Get rid of extra key stroke
+   02c4   3a 00         	bnz	CPRET		;no -  we are good
                         
-   02a7   f8 50         	ldi	$50		;yes - back to zero!
-   02a9   54            	str	r4		;
-   02aa   30 00         	br	CPRET	
+   02c6   f8 50         	ldi	$50		;yes - back to zero!
+   02c8   54            	str	r4		;
+   02c9   30 00         	br	CPRET	
                         
                         ;So now that we sorted all possible HEX - it must be a digit
                         ;but we need tocheck to see if a command needs a digit...
                         
-   02ac                 NOHEX:
-   02ac   f8 98         	ldi	LOW CMD	;CMD pointer 
-   02ae   a5            	plo	r5		;Index in R(5.0)
-   02af   f8 00         	ldi	HIGH CMD	;CMD pointer 
-   02b1   b5            	phi	r5		;Index in R(5.1)
+   02cb                 NOHEX:
                         
-   02b2   05            	ldn	r5
-   02b3   32 00         	bz	CPRET		; No command to process
-   02b5   fb 0a         	xri	$0A
-   02b7   32 c3         	bz	VERCMD
                         
-   02b9   05            	ldn	r5
-   02ba   fb 0b         	xri	$0B
-   02bc   32 cb         	bz	NOUCMD
+                        ;Check if we need to store a register digit
+   02cb   f8 9a         	ldi	LOW CCNT	;Do We need a DIGIT in REG?
+   02cd   a5            	plo	r5			;to R(5.0)
+   02ce   f8 00         	ldi	HIGH CCNT	;Do We need a DIGIT in REG?
+   02d0   b5            	phi	r5			;to R(5.1)
+   02d1   05            	ldn	r5
                         
-   02be   f8 00         	ldi	$00
-   02c0   55            	str	r5		;clear it out if it was 
-   02c1   30 00         	br	CPRET		;not a known command...
+   02d2   32 dd         	bz	VNCMD		;No - check for VERB or NOUN
+                        	
+   02d4                 GETDIG:
+   02d4   f8 25         	ldi	LOW WRDEC	;Yes - store it in REG RxDx	
+   02d6   ad            	plo	rd
+   02d7   f8 04         	ldi	HIGH WRDEC
+   02d9   bd            	phi	rd
+   02da   dd            	sep	rd
+   02db   30 00          	br	CPRET
+                        ;
                         
-                        ;OK so we need a VERB Digit...
-   02c3                 VERCMD:
-   02c3   f8 00         	ldi	HIGH NOUN_VERB	;Get the pointer to Verb Reg
-   02c5   b4            	phi	r4			;to R(4.1)
-   02c6   f8 a7         	ldi	LOW NOUN_VERB+1
-   02c8   a4            	plo	r4			;to R(4.0)
-   02c9   30 d1         	br	NVCM1
+   02dd                 VNCMD:
+                        	;////////NEW///////
+   02dd   f8 4d         	ldi	LOW CHKCMD	;Yes - store it in REG RxDx	
+   02df   ad            	plo	rd
+   02e0   f8 04         	ldi	HIGH CHKCMD
+   02e2   bd            	phi	rd
+   02e3   dd            	sep	rd
                         
-                        ;OK so we need a NOUN Digit...
-   02cb                 NOUCMD:
-   02cb   f8 00         	ldi	HIGH NOUN_VERB
-   02cd   b4            	phi	r4
-   02ce   f8 aa         	ldi	LOW NOUN_VERB+4
-   02d0   a4            	plo	r4			;to R(4.0)
-                        
-   02d1                 NVCM1:
-   02d1   04            	ldn	r4	;get the storage location
-   02d2   fa f0         	ani	$F0	;check to see if new digit is needed	
-   02d4   32 d8         	bz	NEXNV	; no - control is clear so it is loaded
-   02d6   30 e3         	br	WRTNV
-                        
-   02d8                 NEXNV:
-   02d8   14            	inc	r4	;increment storage pointer
-   02d9   04            	ldn	r4	;get the next storage location
-   02da   fa f0         	ani	$F0	; check for need...	
-   02dc   3a e3         	bnz	WRTNV	; yes control is there write new one
-   02de   f8 00         	ldi	$00	; no control -  then we are done... 
-   02e0   55            	str	r5	; kill the command via CMD pointer
-   02e1   30 00         	br	CPRET	
-                        
-   02e3                 WRTNV:
-   02e3   8e            	glo	re	;finally, get our digit an put it in REG
-   02e4   fa 0f         	ani	$0F	; make double sure no control in MSB
-   02e6   54            	str	r4
-   02e7   30 00         	br	CPRET
+   02e4   30 00          	br	CPRET
+                        	;////////NEW///////
                         ;
                         ;=========================================================================
                         ;=============================PAGE 0300===================================
@@ -1200,25 +1212,30 @@
                         ;These are to be implemented (demonstrated):
                         ;
                         ;	COMMAND	DISCRIPTION
+                        ;Set DECIMAL Commands:
                         ;	V21NxxE =	Enter DECIMAL in R1
                         ;	V22NxxE =	Enter DECIMAL in R2
                         ;	V23NxxE =	Enter DECIMAL in R3
                         ;	V25N36E = 	Set Clock (SET TIME = RTC)
+                        ;Test Commands:
                         ;	V35E = 	Lamp test (LAMPS)
                         ;	V36E = 	Clear Displays (CLEAR)
                         ;	V37E00E = 	Program 0 (P00h) Note: N00E can be 00 - 99
-                        ; 	V16N65E = 	Real Time Clock (MET) 
-                        ;	V25N36E = 	Set Clock (SET TIME = RTC)
-                        ;
-                        ;There is also a fictious command:
+                        ;Monitor R1, R2, R3 in Decimal
+                        ; 	V16N65E = 	Mission Elapsed Time(MET) 
+                        ;	V16N36E = 	Real Time Clock (RTC) 
+                        ;************************************************************************	
+                        
+                        ;***************************NOTE**************************************	
+                        ;There may also be a fictious command soon:
                         ;	V20N15E = 	YEAR (YY = 15 will update to next year after 365(6) 
                         ;	This causes the days counter on REG1  to update as well as 
                         ;	the MET clock.  It also incremente PROG 0 -> 7 (Day of week) and
                         ;	the day counter resets at 365 and 366 on the next several LYs
                         ;	Note: if you use this as a clock for several years you will burn
                         ;	the display!
-                        ;************************************************************************	
-                        ;
+                        ;***************************NOTE**************************************	
+                        
                         
    0300                 AGC_RET:
    0300   d3            	sep	r3		;all done with AGC result display to process
@@ -1227,89 +1244,146 @@
    0303   b4            	phi	r4
    0304   b5            	phi	r5
                         
-   0305   f8 be         	ldi	LOW	VERB	; Get the current verb
+   0305   f8 bf         	ldi	LOW	VERB	; Get the current verb
    0307   a4            	plo	r4
    0308   04            	ldn	r4
    0309   32 00         	bz	AGC_RET	;nothing get out of processing
                         
    030b   fb 16         	xri	$16		;VERB 16 =  Decimal Display R1,R2, R3 
-   030d   32 25         	bz	V16
+   030d   32 2a         	bz	V16
                         	
    030f   04            	ldn	r4
    0310   fb 21         	xri	$21		; VERB 21 = Decimal LOAD R1
-   0312   32 49         	bz	V21
+   0312   32 81         	bz	V21
                         
    0314   04            	ldn	r4
    0315   fb 22         	xri	$22		; VERB 22 = Decimal LOAD R2 
-   0317   32 4d         	bz	V22
+   0317   32 85         	bz	V22
                         
    0319   04            	ldn	r4
    031a   fb 23         	xri	$23		; VERB 23 = Decimal LOAD R3 
-   031c   32 51         	bz	V23
+   031c   32 89         	bz	V23
                         
    031e   04            	ldn	r4
    031f   fb 35         	xri	$35		; VERB 35 = LAMP TEST
-   0321   32 86         	bz	V35
+   0321   32 c9         	bz	V35
+                        
+   0323   04            	ldn	r4
+   0324   fb 36         	xri	$36		; VERB 36 = set all REG to 0
+   0326   32 2f         	bz	V36
                         		
-   0323   30 6e         	br	GODNOPR	; not a known process
+   0328   30 aa         	br	NOGO	; not a known process
                         
                         ;**************VERB 16**********************
+                        ;Moves the counters to display for V=16 N=35E
                         ;Moves the counters to display for V=16 N=65E
                         ;from Mission Elapse Time (MET) counters on 
                         ;Page 0000 to show Real Time Clock on the DSKY
                         ;
                         ;********************************************
-   0325                 V16:
-                        ;	ldi	LOW REG1	;Restore the (+)
-                        ;	plo	r4
-                        ;	ldi	$52
-                        ;	str	r4
-                        ;	ldi	LOW REG2
-                        ;	plo	r4
-                        ;	ldi	$52
-                        ;	str	r4
-                        ;	ldi	LOW REG3
-                        ;	plo	r4
-                        ;;	ldi	$52
-                        ;	str	r4
+   032a                 V16:
+   032a   f8 00         	ldi	$00	;Put ZEROs in
+   032c   af            	plo	rf
+   032d   30 32         	br	CLR3	;clear all 
                         
-                        ;Zero the registers...
-   0325   f8 ae         	ldi	LOW	SET3
-   0327   ac            	plo	rc
-   0328   f8 03         	ldi	HIGH	SET3
-   032a   bc            	phi	rc
+                        ;**************VERB 36**********************
+                        ;Clears all the displays 
+                        ;********************************************
+   032f                 V36:
+                        ;..............NOTE.............
+                        ;need to clear the signs still
+                        ;..............NOTE.............
                         
-   032b   f8 00         	ldi	$00	;<<<this can be changed to use a variable
-   032d   af            	plo	rf
+   032f   f8 c0         	ldi	$C0	;Put CLEARs in 
+   0331   af            	plo	rf
                         
-   032e   f8 b8         	ldi	LOW	REG3	;Set REG3
-   0330   dc            	sep	rc
-                        
-   0331   f8 b2         	ldi	LOW	REG2	;Set REG2
-   0333   dc            	sep	rc
-                        
-   0334   f8 ac         	ldi	LOW	REG1	;Set REG1
-   0336   dc            	sep	rc
-                        
-   0337   f8 9a          	ldi	LOW HHMMSS			;source is clock
-   0339   a4             	plo	r4
-   033a   f8 da         	ldi	LOW MET_OFFSETS	;destination is REG1 - REG3
-   033c   a5            	plo	r5
+   0332                 CLR3:
+                        ;Set all REGs
+   0332   f8 01         	ldi	LOW	SET3
+   0334   ac            	plo	rc
+   0335   f8 04         	ldi	HIGH	SET3
+   0337   bc            	phi	rc
                         
                         
-   033d                 NEXT_DIG:
+   0338   f8 b9         	ldi	LOW	REG3	;Set REG3
+   033a   dc            	sep	rc
                         
-   033d   05            	ldn	r5		;get the display pointer
-   033e   a6            	plo	r6		;R6.0
-   033f   72            	ldxa			;Pick up HHMMSS digit, increment index  X+1
-   0340   56            	str	r6		;store them in register locations
+   033b   f8 b3         	ldi	LOW	REG2	;Set REG2
+   033d   dc            	sep	rc
+                        
+   033e   f8 ad         	ldi	LOW	REG1	;Set REG1
+   0340   dc            	sep	rc
+                        
+   0341   f8 00         	ldi	HIGH	VERB	;make Same page 0 (needed?)
+   0343   b4            	phi	r4
+   0344   f8 bf         	ldi	LOW	VERB	; Get the current verb
+   0346   a4            	plo	r4
+                        
+   0347   04            	ldn	r4		;get current VERB
+   0348   fb 36         	xri	$36		;was it VERB 36?
+   034a   3a 60         	bnz	CHK_NOUNS	;No - Check some nouns... 
+   034c   f8 00         	ldi	$00		;Yes - Clear the VERB
+   034e   54            	str	r4
+   034f   14            	inc	r4
+   0350   14            	inc	r4
+   0351   54            	str	r4
+                        
+   0352   f8 a8         	ldi	LOW	NOUN_VERB+1 ; "00" -> VERB
+   0354   a4            	plo	r4
+   0355   94            	ghi	r4
+   0356   54            	str	r4
+   0357   14            	inc	r4
+   0358   54            	str	r4
+                        
+   0359   14            	inc	r4	; "00" -> VERB	
+   035a   14            	inc	r4	
+   035b   54            	str	r4
+   035c   14            	inc	r4	
+   035d   54            	str	r4
+                        
+   035e   30 00         	br	AGC_RET	;Done -> Exit
+                        
+   0360                 CHK_NOUNS:
+   0360   f8 c1         	ldi	LOW	NOUN	; Get the current noun
+   0362   a4            	plo	r4
+                        
+   0363   04            	ldn	r4
+   0364   fb 36         	xri	$36		;NOUN 36?
+   0366   32 6f         	bz	LOAD_MET	;YES -> get RTC
+                        
+   0368   04            	ldn	r4
+   0369   fb 65         	xri	$65		;NOUN = 65?
+   036b   32 6f         	bz	LOAD_MET	;YES -> Get MET
+                        
+                        ;..............NOTE.....................................
+                        ;If we don't clear VERB here we can keep entering nouns.
+                        ;and don't consider it an error... and start flashing
+                        ;we can just exit here
+                        ;..............NOTE.....................................
+                        
+   036d   30 00         	br	AGC_RET	;Every other NOUN -> Exit
+                        
+                        	
+   036f                 LOAD_MET:
+   036f   f8 9b          	ldi	LOW HHMMSS ;No, Load source is clock
+   0371   a4             	plo	r4
+   0372   f8 db         	ldi	LOW MET_OFFSETS	;destination is REG1 - REG3
+   0374   a5            	plo	r5
+                        
+                        
+   0375                 NEXT_DIG:
+                        
+   0375   05            	ldn	r5		;get the display pointer
+   0376   a6            	plo	r6		;R6.0
+   0377   72            	ldxa			;Pick up HHMMSS digit, increment index  X+1
+   0378   56            	str	r6		;store them in register locations
                         ;	
-   0341   15            	inc	r5			; point to next
-   0342   84            	glo	r4			;test for done with moves
-   0343   fb a0         	xri	LOW HHMMSS+6 
-   0345   3a 3d         	bnz	NEXT_DIG		;nope - get next one
+   0379   15            	inc	r5			; point to next
+   037a   84            	glo	r4			;test for done with moves
+   037b   fb a1         	xri	LOW HHMMSS+6 
+   037d   3a 75         	bnz	NEXT_DIG		;nope - get next one
                         
-   0347   30 00         	br	AGC_RET
+   037f   30 00         	br	AGC_RET
                         
                         ;**************VERB 21**********************
                         ;Clear R1 ($0xC0->R1D1 to R1D5)
@@ -1317,185 +1391,449 @@
                         ;Load DECIMAL into R1D1 -> R1D5
                         ;
                         ;********************************************
-   0349                 V21:
-   0349   f8 ac         	ldi	LOW	REG1
-   034b   30 53         	br	V2N
+   0381                 V21:
+   0381   f8 ad         	ldi	LOW	REG1
+   0383   30 8b         	br	V2N
                         
                         ;**************VERB 22**********************
                         ;Load DECIMAL into R2D1 -> R2D5
                         ;SAME AS ABOVE
                         ;*******************************************
-   034d                 V22:
-   034d   f8 b2         	ldi	LOW	REG2
-   034f   30 53         	br	V2N
+   0385                 V22:
+   0385   f8 b3         	ldi	LOW	REG2
+   0387   30 8b         	br	V2N
                         
                         ;**************VERB 22**********************
                         ;Load DECIMAL into R3D1 -> R3D5
                         ;SAME AS ABOVE
                         ;*******************************************
-   0351                 V23:
-   0351   f8 b8         	ldi	LOW	REG3
+   0389                 V23:
+   0389   f8 b9         	ldi	LOW	REG3
                         
-   0353                 V2N:
-   0353   a4            	plo	r4
-   0354   f8 00         	ldi	$00
-   0356   b4            	phi	r4
-   0357   b5            	phi	r5
+   038b                 V2N:
+   038b   a4            	plo	r4
+   038c   f8 00         	ldi	$00
+   038e   b4            	phi	r4
+   038f   b5            	phi	r5
                         
-   0358   f8 99         	ldi	LOW	CDX	;put the index in memory for later
-   035a   a5            	plo	r5
-   035b   84            	glo	r4
-   035c   55            	str	r5
+   0390   f8 99         	ldi	LOW	CDEX	;put the index in memory for later
+   0392   a5            	plo	r5
+   0393   84            	glo	r4
+   0394   55            	str	r5
                         
-   035d   f8 50         	ldi	$50	;clear the sign
-   035f   54            	str	r4
-   0360   14            	inc	r4
+   0395   f8 50         	ldi	$50	;clear the sign
+   0397   54            	str	r4
+   0398   14            	inc	r4
                         
-   0361   f8 05         	ldi	$05	;char count
-   0363   a5            	plo	r5
+                        ;Load the counter - NOTE that this is also the flg to process
+   0399   f8 9a         	ldi	LOW CCNT
+   039b   a6            	plo	r6	;use as mem pointer 
+   039c   f8 05         	ldi	$05	;char count -> CCNT (sign+5 digits)
+   039e   a5            	plo	r5	;loop counter = R5
+   039f   56            	str	r6	;M[R6] = CCNT 
+                        
+   03a0                 V2XCLRL:			;clear the register 
+   03a0   f8 c0         	ldi	$C0		;Clear command
+   03a2   54            	str	r4
+   03a3   14            	inc	r4
+   03a4   25            	dec	r5		;Decrement Loop Count
+   03a5   85            	glo	r5
+   03a6   3a a0         	bnz	V2XCLRL
+                        
+   03a8   30 ba         	br	CLRVN		;Done with this verb
                         	
                         
-   0364                 V2XCLRL:			;clear the register 
-   0364   f8 c0         	ldi	$C0
-   0366   54            	str	r4
-   0367   14            	inc	r4
-   0368   25            	dec	r5
-   0369   85            	glo	r5
-   036a   3a 64         	bnz	V2XCLRL
+   03aa                 NOGO:
+                        ;assuming still  PAGE 0000 here...
                         
-   036c   30 7e         	br	CLRVN		;Done with this verb
-                        	
+   03aa   f8 a8         	ldi	LOW NOUN_VERB+1
+   03ac   a4            	plo	r4			;to R(4.0)
                         
-   036e                 GODNOPR:
-                        ;assuming PAGE 0000
-                        ;/////////////TEST//////////////////////////////////////////////////
-                        ;	br	AGC_RET	;FLASH works but we cant seem to get new VERB...
-                        ;/////////////TEST//////////////////////////////////////////////////
-   036e   f8 a7         	ldi	LOW NOUN_VERB+1
-   0370   a4            	plo	r4			;to R(4.0)
+   03ad   04            	ldn	r4	;get first digit M[R(4)] -> D
+   03ae   fa 0f         	ani	$0f	;Mask any control bits
+   03b0   fc f0         	adi	$F0	;Set to flash 
+   03b2   54            	str	r4
+   03b3   14            	inc	r4	;get next digit 
+   03b4   04            	ldn	r4
+   03b5   fa 0f         	ani	$0f	;Mask any control bits
+   03b7   fc f0         	adi	$F0
+   03b9   54            	str	r4
                         
-   0371   04            	ldn	r4	;get first digit M[R(4)] -> D
-   0372   fa 0f         	ani	$0f	;Mask any control bits
-   0374   fc f0         	adi	$F0	;Set to flash 
-   0376   54            	str	r4
-   0377   14            	inc	r4	;get next digit 
-   0378   04            	ldn	r4
-   0379   fa 0f         	ani	$0f	;Mask any control bits
-   037b   fc f0         	adi	$F0
-   037d   54            	str	r4
+   03ba                 CLRVN:	
+   03ba   f8 bf         	ldi	VERB	;Done- clear out old verb
                         
-   037e                 CLRVN:	
-   037e   f8 be         	ldi	VERB	;Done- clear out old verb
+   03bc   a4            	plo	r4
+   03bd   f8 00         	ldi	$00
+   03bf   54            	str	r4
+                        ;//NEW
+   03c0   f8 88         	ldi	LOW FLASHVN
+   03c2   ac            	plo	rc
+   03c3   f8 04         	ldi	HIGH FLASHVN
+   03c5   bc            	phi	rc
+   03c6   dc            	sep	rc
                         
-   0380   a4            	plo	r4
-   0381   f8 00         	ldi	$00
-   0383   54            	str	r4
-   0384   30 00         	br	AGC_RET
+   03c7   30 00         	br	AGC_RET
                         
-                        ;/////////////////////NEW//////////////////////////////////
-   0386                 V35:
-   0386   f8 ae         	ldi	LOW	SET3
-   0388   ac            	plo	rc
-   0389   f8 03         	ldi	HIGH	SET3
-   038b   bc            	phi	rc
+   03c9                 V35:
+   03c9   f8 01         	ldi	LOW	SET3
+   03cb   ac            	plo	rc
+   03cc   f8 04         	ldi	HIGH	SET3
+   03ce   bc            	phi	rc
                         
-   038c   f8 08         	ldi	$08	;<<<this can be changed to use a variable
-   038e   af            	plo	rf
+   03cf   f8 08         	ldi	$08	;<<<this can be changed to use a variable
+   03d1   af            	plo	rf
                         
-   038f   f8 b8         	ldi	LOW	REG3	;Set REG3
-   0391   dc            	sep	rc
+   03d2   f8 b9         	ldi	LOW	REG3	;Set REG3
+   03d4   dc            	sep	rc
                         
-   0392   f8 b2         	ldi	LOW	REG2	;Set REG2
-   0394   dc            	sep	rc
+   03d5   f8 b3         	ldi	LOW	REG2	;Set REG2
+   03d7   dc            	sep	rc
+                        
+   03d8   f8 ad         	ldi	LOW	REG1	;Set REG1
+   03da   dc            	sep	rc
+                        
+   03db   f8 bf         	ldi	VERB	;TESTVERB LAMPS
+   03dd   a4            	plo	r4
+   03de   f8 88         	ldi	$88
+   03e0   54            	str	r4
+                        
+   03e1   f8 a8         	ldi	NOUN_VERB+1
+   03e3   a4            	plo	r4
+   03e4   f8 f8         	ldi	$F8	;flashing 88 in VERB
+   03e6   54            	str	r4
+   03e7   14            	inc	r4
+   03e8   54            	str	r4
+                        
+   03e9   14            	inc	r4	;Point to NOUN
+   03ea   14            	inc	r4	
+   03eb   54            	str	r4
+   03ec   14            	inc	r4	
+   03ed   54            	str	r4
+                        
+   03ee   f8 a5         	ldi	PROG_REG+4	;Point to prog
+   03f0   a4            	plo	r4
+                        
+   03f1   f8 f8         	ldi	$F8	;flashing 88 in PROG
+   03f3   54            	str	r4
+   03f4   14            	inc	r4	
+   03f5   54            	str	r4
+                        
+   03f6   30 00         	br	AGC_RET
                         
                         
-   0395   f8 ac         	ldi	LOW	REG1	;Set REG1
-   0397   dc            	sep	rc
-                        
-   0398   f8 be         	ldi	VERB	;TESTVERB LAMPS
-   039a   a4            	plo	r4
-   039b   f8 88         	ldi	$88
-   039d   54            	str	r4
-                        
-   039e   f8 a7         	ldi	NOUN_VERB+1
-   03a0   a4            	plo	r4
-   03a1   f8 f8         	ldi	$F8	;flashing 88 in VERB
-   03a3   54            	str	r4
-   03a4   14            	inc	r4
-   03a5   54            	str	r4
-                        
-   03a6   14            	inc	r4	;Point to NOUN
-   03a7   14            	inc	r4	
-   03a8   54            	str	r4
-   03a9   14            	inc	r4	
-   03aa   54            	str	r4
-                        
-   03ab   30 00         	br	AGC_RET
-                        
-                        
-                        ;*********************************************************************
-                        ;                           SUBROUTINE: SET3
-                        ;*********************************************************************
-                        ;USE: Load  Registers SUBR
-                        ;
-                        ;D = REG Addr (on PAGE 0)
-                        ;R(C) = PC
-                        ;R(D) = CALLING PC (Don't Use)
-                        ;*********************************************************************
-   03ad                 SET3_RET:
-   03ad   dd            	sep	rd	;Restore CALLING PC
-   03ae                 SET3:
-   03ae   a4            	plo	r4	;Register address in POINTER
-   03af   f8 00         	ldi	$00	;Assuming PAGE 0
-   03b1   b4            	phi	r4
-   03b2   b5            	phi	r5
-   03b3   f8 99         	ldi	LOW	CDX	; Character Pointer on PAGE 0
-   03b5   a5            	plo	r5
-   03b6   84            	glo	r4
-   03b7   55            	str	r5
-                        ;DO the SIGN for this REG..
-   03b8   f8 52         	ldi	$52	;set (+) Sign
-   03ba   54            	str	r4
-   03bb   14            	inc	r4
-                        ;SET the rest of the five digits in the REG
-   03bc   f8 05         	ldi	$05	;char counter
-   03be   a5            	plo	r5
-                        	
-                        
-   03bf                 S3LOOP:			;clear the register 
-                        ;	ldi	$08	;<<<this can be changed to use a variable
-   03bf   8f            	glo	rf
-   03c0   54            	str	r4
-   03c1   14            	inc	r4
-   03c2   25            	dec	r5
-   03c3   85            	glo	r5
-   03c4   3a bf         	bnz	S3LOOP	;all 5 set?
-   03c6   30 ad         	br	SET3_RET	;yes! Done RETURN
-                        
-                        ;*********************************************************************
-                        ;                           SUBROUTINE: DELAY1
-                        ;*********************************************************************
-                        ;USE: Load  Registers SUBR
-                        ;
-                        ;D = REG Addr (on PAGE 0)
-                        ;R(C) = PC
-                        ;R(D) = CALLING PC (Don't Use)
-                        ;*********************************************************************
-   03c8                 DEL1_RET:
-   03c8   dd            	sep	rd	;Restore CALLING PC
-   03c9                 DELAY1:
-   03c9   30 c8         	br	DEL1_RET
-   03cb   f8 02         	ldi	$02
-   03cd   a5            	plo	r5
-                        
-   03ce                 DLY01:
-   03ce   25            	dec	r5
-   03cf   85            	glo	r5
-   03d0   3a ce         	bnz	DLY01
-                        
-   03d2   30 c8         	br	DEL1_RET	
                         ;=========================================================================
                         ;=============================PAGE 0400===================================
+                        ;=========================================================================
+   0400                 	org	$0400
+                        
+                        ;*********************************************************************
+                        ;                      SUBROUTINE: SET3
+                        ;*********************************************************************
+                        ;USE: Load  Registers SUBR
+                        ;
+                        ;CDEX= REG Addr (on PAGE 0)
+                        ;R(C) = PC
+                        ;R(D) = CALLING PC (Don't Use)
+                        ;*********************************************************************
+   0400                 SET3_RET:
+   0400   dd            	sep	rd	;Restore CALLING PC
+   0401                 SET3:
+   0401   a4            	plo	r4	;Register address in POINTER
+   0402   f8 00         	ldi	$00	;Assuming PAGE 0
+   0404   b4            	phi	r4
+   0405   b5            	phi	r5
+   0406   f8 99         	ldi	LOW	CDEX	; Character Pointer on PAGE 0
+   0408   a5            	plo	r5
+   0409   84            	glo	r4
+   040a   55            	str	r5
+                        
+                        ;DO the SIGN for this REG..	
+   040b   8f            	glo	rf
+   040c   fb c0         	xri	$C0
+   040e   3a 14         	bnz	SETPLS
+   0410   f8 50         	ldi	$50		;CLR Sign
+   0412   30 16         	br	SETCLR
+   0414                 SETPLS:
+   0414   f8 52         	ldi	$52		;set (+) Sign
+   0416                 SETCLR:
+   0416   54            	str	r4
+   0417   14            	inc	r4
+                        
+                        ;SET the rest of the five digits in the REG
+   0418   f8 05         	ldi	$05	;char counter
+   041a   a5            	plo	r5
+                        	
+                        
+   041b                 S3LOOP:			;clear the register 
+                        ;	ldi	$08	;<<<this can be changed to use a variable
+   041b   8f            	glo	rf
+   041c   54            	str	r4
+   041d   14            	inc	r4
+   041e   25            	dec	r5
+   041f   85            	glo	r5
+   0420   3a 1b         	bnz	S3LOOP	;all 5 set?
+   0422   30 00         	br	SET3_RET	;yes! Done RETURN
+                        
+                        ;*********************************************************************
+                        ;                      SUBROUTINE: WRDEC
+                        ;*********************************************************************
+                        ;USE: Load DECIMAL Register SUBR
+                        ;CALL: From NO HEX (Only digits 0 -9 should be passed 
+                        ;CDEX = REG Addr (on PAGE 0)
+                        ;CCNT = COUNTER Addr (on PAGE 0)
+                        ;R(D) = PC
+                        ;R(C) = CALLING PC (Don't Use)
+                        ;R(4) = MEMORY location for INDEX
+                        ;R(6) = INDEX pointer REG
+                        ;R(5) = MEMORY location for COUNTER
+                        ;R(7) = COUNTER REG
+                        ;
+                        ;MEMORY STORAGE:
+                        ;CDEX = Pointer to Current Register location
+                        ; If it is 0\clear we don't need any digits
+                        ; if M(RX) = $Cx then store
+                        ; DEC CCNT
+                        ; IF CCNT = 0 then done
+                        ;CCNT = Counter 5 -> 0 
+                        ; 
+                        ;*********************************************************************
+   0424                 RET_WRDEC:
+   0424   dc            	sep	rc
+   0425                 WRDEC:
+   0425   f8 00         	ldi	HIGH CDEX	;Get the REG pointer to RegN
+   0427   b4            	phi	r4			;to R(4.1)
+   0428   b5            	phi	r5			;to R(5.1)
+   0429   b6             	phi	r6			;to R(6.1)
+   042a   f8 99         	ldi	LOW CDEX	;index storage
+   042c   a4            	plo	r4			;to R(4.0)
+   042d   a6            	plo	r6		;index
+                        
+                        ;	ldi	HIGH CCNT	;Get the REG Counter ->Page Zero?
+                        ;	phi	r5
+                        			;to R(5.1)
+   042e   f8 9a         	ldi	LOW CCNT
+   0430   a5            	plo	r5			;to R(5.0)
+   0431   05            	ldn	r5
+   0432   a7            	plo	r7
+   0433   32 24         	bz	RET_WRDEC		;all digits? Yes exit.
+                        
+   0435   06            	ldn	r6		;point to reg location
+   0436   a6            	plo	r6
+   0437   06            	ldn	r6		;now get current reg contents
+   0438   fa f0         	ani	$F0		;
+   043a   fb c0         	xri	$C0		; is the Space clear? 
+   043c   32 3f         	bz	SAVDIG	;Yes - we can use it -> save it
+   043e   16            	inc	r6		;No - this will skip over sign and digit
+                        ;	dec	r7		;this may have been the last needed?
+                        
+   043f                 SAVDIG:
+   043f   8e            	glo	re		;get the last key
+   0440   56            	str	r6		;SAVE DIGIT NOW!
+                        	
+                        
+   0441   16            	inc	r6		;point to next
+   0442   86            	glo	r6
+   0443   54            	str	r4		;put it in index storage
+                        	
+   0444   87            	glo	r7		;if it is already zero don't dec
+   0445   32 24         	bz	RET_WRDEC
+                        
+   0447   27            	dec	r7		;Dec and Save the count
+   0448   87            	glo	r7		;
+   0449   55            	str	r5		;Save it in memory R7 -> M[R5]
+   044a   30 24         	br	RET_WRDEC	;Done with this digit
+                        
+                        ;////////NEW///////
+   044c                 CMRET:
+   044c   dc            	sep	rc
+   044d                 CHKCMD:
+                        ;Check if we need a VERB or NOUN  Digit
+   044d   f8 98         	ldi	LOW CMD	;CMD pointer 
+   044f   a5            	plo	r5		;Index in R(5.0)
+   0450   f8 00         	ldi	HIGH CMD	;CMD pointer 
+   0452   b5            	phi	r5		;Index in R(5.1)
+                        
+   0453   05            	ldn	r5
+   0454   32 4c         	bz	CMRET		; No command to process - check if data is needed
+   0456   fb 0a         	xri	$0A
+   0458   32 62         	bz	VERCMD	;VERB
+                        
+   045a   05            	ldn	r5
+   045b   fb 0b         	xri	$0B
+   045d   32 6a         	bz	NOUCMD	;NOUN
+                        
+   045f   f8 00         	ldi	$00	;clear it out if it was 
+   0461   55            	str	r5	;not a known command...
+                        
+                        
+                        
+                        ;OK so we need a VERB Digit...
+   0462                 VERCMD:
+   0462   f8 00         	ldi	HIGH NOUN_VERB	;Get the pointer to Verb Reg
+   0464   b4            	phi	r4			;to R(4.1)
+   0465   f8 a8         	ldi	LOW NOUN_VERB+1
+   0467   a4            	plo	r4			;to R(4.0)
+   0468   30 70         	br	NVCM1
+                        
+                        ;OK so we need a NOUN Digit...
+   046a                 NOUCMD:
+   046a   f8 00         	ldi	HIGH NOUN_VERB
+   046c   b4            	phi	r4
+   046d   f8 ab         	ldi	LOW NOUN_VERB+4
+   046f   a4            	plo	r4			;to R(4.0)
+                        
+   0470                 NVCM1:
+   0470   04            	ldn	r4	;get the storage location
+   0471   fa f0         	ani	$F0	;check to see if new digit is needed	
+   0473   32 77         	bz	NEXNV	; no - control is clear so it is loaded
+   0475   30 82         	br	WRTNV
+                        
+   0477                 NEXNV:
+   0477   14            	inc	r4	;increment storage pointer
+   0478   04            	ldn	r4	;get the next storage location
+   0479   fa f0         	ani	$F0	; check for need...	
+   047b   3a 82         	bnz	WRTNV	; yes control is there write new one
+   047d   f8 00         	ldi	$00	; no control -  then we are done... 
+   047f   55            	str	r5	; kill the command via CMD pointer
+   0480   30 4c         	br	CMRET	
+                        
+   0482                 WRTNV:
+   0482   8e            	glo	re	;finally, get our digit an put it in REG
+   0483   fa 0f         	ani	$0F	; make double sure no control in MSB
+   0485   54            	str	r4
+   0486   30 4c         	br	CMRET
+                        
+   0488                 FLASHVN:
+   0488   f8 00         	ldi	HIGH NOUN_VERB
+   048a   b4            	phi	r4
+   048b   f8 a8         	ldi	LOW NOUN_VERB+1
+   048d   a4            	plo	r4
+                        
+   048e   04            	ldn	r4
+   048f   fa 0f         	ani	$0f	;Mask any control bits
+   0491   fc f0         	adi	$F0	;FLASH VERB MSB
+   0493   54            	str	r4
+                        
+   0494   14            	inc	r4
+   0495   04            	ldn	r4
+   0496   fa 0f         	ani	$0f	;Mask any control bits
+   0498   fc f0         	adi	$F0	;FLASH VERB LSB
+   049a   54            	str	r4
+                        
+   049b   14            	inc	r4	;Point to NOUN
+   049c   14            	inc	r4
+   049d   04            	ldn	r4
+   049e   fa 0f         	ani	$0F	;FLASH NOUN MSB
+   04a0   fc f0         	adi	$F0
+   04a2   54            	str	r4
+                        
+   04a3   14            	inc	r4	;FLASH NOUN LSB
+   04a4   04            	ldn	r4
+   04a5   fa 0f         	ani	$0F
+   04a7   fc f0         	adi	$F0	
+   04a9   54            	str	r4
+                        
+   04aa   dd            	sep	rd
+                        
+   04ab                 CFLASHVN:
+                        
+   04ab   f8 a8         	ldi	LOW NOUN_VERB+1	; Get current VERB Nybbles
+   04ad   a5            	plo	r5	
+   04ae   f8 00         	ldi	HIGH NOUN_VERB+1	; Get current VERB Nybbles
+   04b0   b5            	phi	r5
+                        	
+   04b1   05            	ldn	r5	;Should be pointing to VERBs display 
+   04b2   fa 0f         	ani	$0F	;Stop FLASH MSB
+   04b4   55            	str	r5
+   04b5   15            	inc 	r5
+   04b6   05            	ldn	r5
+   04b7   fa 0f         	ani	$0F	;Stop FLASH LSB
+   04b9   55            	str	r5
+                        	
+   04ba   15            	inc	r5	;now point to NOUNs display
+   04bb   15            	inc	r5
+                        
+   04bc   05            	ldn	r5
+   04bd   fa 0f         	ani	$0F	;Stop FLASH MSB
+   04bf   55            	str	r5
+   04c0   15            	inc 	r5
+   04c1   05            	ldn	r5
+   04c2   fa 0f         	ani	$0F	;Stop FLASH LSB
+   04c4   55            	str	r5
+                        
+   04c5   f8 a9         	ldi	LOW NOUN_VERB+2	; Get current VERB Nybbles
+   04c7   a5            	plo	r5
+   04c8   05            	ldn	r5
+                        
+   04c9   dc            	sep	rc
+                        
+                        ;	ldi	LOW REG1+4	;Hours
+                        ;	ldi	LOW REG3+2	;Sec
+                        ;SAVMN:
+                        ;	ldi	LOW REG2+4	;Mins
+                        ;	plo	r5
+                        ;	ldn	r5
+                        ;	phi	rf
+                        ;	inc	r5
+                        ;	ldn	r5
+                        ;	plo	rf
+                        
+                        ;	ldi	LOW MM
+                        ;	plo	r5
+                        ;	ghi	rf
+                        ;	str	r5
+                        ;	inc	r5
+                        ;	glo	rf
+                        ;	str	r5
+   04ca                 SAVTIME:
+                        ;	ldi	HIGH NOUN_VERB	;Get the pointer to Verb Reg
+                        ;	phi	r4			;to R(4.1)
+   04ca   f8 a8         	ldi	LOW NOUN_VERB+1
+   04cc   a4            	plo	r4
+   04cd   04            	ldn	r4
+   04ce   fa 0f         	ani	$0F
+   04d0   fb 02         	xri	$02
+   04d2   3a ff         	bnz	SAV02
+                        
+   04d4   14            	inc	r4
+   04d5   04            	ldn	r4
+   04d6   fa 0f         	ani	$0F
+   04d8   af            	plo	rf
+                        
+   04d9   8f            	glo	rf
+   04da   fb 01         	xri	$01
+   04dc   3a e6         	bnz	MOV22
+   04de   f8 b1         	ldi	LOW REG1+4	;Hours
+   04e0   a4            	plo	r4
+   04e1   f8 9b         	ldi	LOW HH
+   04e3   a5            	plo	r5
+   04e4   30 f9         	br	SAV01
+   04e6                 MOV22:
+   04e6   8f            	glo	rf
+   04e7   fb 01         	xri	$01
+   04e9   3a f3         	bnz	MOV23
+   04eb   f8 b7         	ldi	LOW REG2+4	;MIN
+   04ed   a4            	plo	r4
+   04ee   f8 9d         	ldi	LOW MM
+   04f0   a5            	plo	r5
+   04f1   30 f9         	br	SAV01
+   04f3                 MOV23:
+   04f3   f8 b7         	ldi	LOW REG2+4	;MIN
+   04f5   a4            	plo	r4
+   04f6   f8 9d         	ldi	LOW MM
+   04f8   a5            	plo	r5
+   04f9                 SAV01:
+   04f9   04            	ldn	r4
+   04fa   55            	str	r5
+   04fb   14            	inc	r4
+   04fc   15            	inc	r5
+   04fd   04            	ldn	r4
+   04fe   55            	str	r5
+   04ff                 SAV02:
+   04ff   dc            	sep	rc
+                        
+                        ;=========================================================================
+                        ;=============================PAGE 0500===================================
                         ;=========================================================================
                         
                         ;*******************************************************
@@ -1505,130 +1843,136 @@
                         ;*******************************************************
                         ;This needs to point to its own 256 byte page:
                          
-   0400                 	org	$0400
+   0500                 	org	$0500
                         
                         ;****************************** MAP *********************************
                         ;
-                        ; A1 = 0402 (PROG ACTY)         P1 = 0405  P0 = 0406 (PROG)
-                        ; V1 = 044A  V0 =044B (VERB)    N1 = 044D  N0 = 044E (NOUN)
+                        ; A1 = 0502 (PROG ACTY)         P1 = 0505  P0 = 0506 (PROG)
+                        ; V1 = 054A  V0 =054B (VERB)    N1 = 054D  N0 = 054E (NOUN)
                         
                         ;
-                        ; ====================== 0448 (LINE) ================================ 
+                        ; ====================== 0548 (LINE) ================================ 
                         ; 
-                        ; SR1 = 0479 R1.4 = 047A r1.3 = 047B r1.2 = 047C r1.1 = 047D r1.0 = 047E  (REG1) 
-                        ; SR2 = 04A9 R2.4 = 04AA r2.3 = 04AB r2.2 = 04AB r2.1 = 04AD r2.0 = 04AE  (REG2)
-                        ; SR3 = 04D9 R3.4 = 04DA r3.3 = 04DB r3.2 = 04DC r3.1 = 04DD r3.0 = 048E  (REG3)
+                        ; SR1 = 0579 R1.4 = 057A r1.3 = 057B r1.2 = 057C r1.1 = 057D r1.0 = 057E  (REG1) 
+                        ; SR2 = 05A9 R2.4 = 05AA r2.3 = 05AB r2.2 = 05AB r2.1 = 05AD r2.0 = 05AE  (REG2)
+                        ; SR3 = 05D9 R3.4 = 05DA r3.3 = 05DB r3.2 = 05DC r3.1 = 05DD r3.0 = 058E  (REG3)
                         ;*******************************************************************
                         
                         ;initialize by loading the following patterns... not needed if page gets init in program
                         ;Line1:    +0   +1   +2   +3   +4   +5   +6   +7
                         ;Line2:    +8   +9   +a   +b   +c   +d   +e   +f
                         
-   0400                 DSKY_L1:
+   0500                 DSKY_L1:
                           
-   0400   00 00 ff 00   	db	$00, $00, $ff, $00, $00, $f0, $f0, $00	;0 0400 (PROG ACTY TOP) --- (PROG TOP)
-   0404   00 f0 f0 00   
-   0408   00 00 ff 00   	db	$00, $00, $ff, $00, $00, $90, $90, $00	;1 0408
-   040c   00 90 90 00   
-   0410   00 00 ff 00   	db	$00, $00, $ff, $00, $00, $90, $90, $00	;2 0410
-   0414   00 90 90 00   
-   0418   00 00 ff 00   	db	$00, $00, $ff, $00, $00, $90, $90, $00	;3 0418
-   041c   00 90 90 00   
-   0420   00 00 ff 00   	db	$00, $00, $ff, $00, $00, $f0, $f0, $00	;4 0420
-   0424   00 f0 f0 00   
-   0428   00 00 00 00   	db	$00, $00, $00, $00, $00, $00, $00, $00	;  0428 (VERB Line)   (NOUN L LINE)
-   042c   00 00 00 00   
+   0500   00 00 ff 00   	db	$00, $00, $ff, $00, $00, $f0, $f0, $00	;0 0500 (PROG ACTY TOP) --- (PROG TOP)
+   0504   00 f0 f0 00   
+   0508   00 00 ff 00   	db	$00, $00, $ff, $00, $00, $90, $90, $00	;1 0508
+   050c   00 90 90 00   
+   0510   00 00 ff 00   	db	$00, $00, $ff, $00, $00, $90, $90, $00	;2 0510
+   0514   00 90 90 00   
+   0518   00 00 ff 00   	db	$00, $00, $ff, $00, $00, $90, $90, $00	;3 0518
+   051c   00 90 90 00   
+   0520   00 00 ff 00   	db	$00, $00, $ff, $00, $00, $f0, $f0, $00	;4 0520
+   0524   00 f0 f0 00   
+   0528   00 00 00 00   	db	$00, $00, $00, $00, $00, $00, $00, $00	;  0528 (VERB Line)   (NOUN L LINE)
+   052c   00 00 00 00   
                         
-   0430                 DSKY_L2: 
-   0430   00 00 60 f0   	db	$00, $00, $60, $f0, $00, $f0, $f0, $00	;0 0438 (VV=16  NN=65)
-   0434   00 f0 f0 00   
-   0438   00 00 20 80   	db	$00, $00, $20, $80, $00, $80, $80, $00	;1 0440
-   043c   00 80 80 00   
-   0440   00 00 20 f0   	db	$00, $00, $20, $f0, $00, $f0, $f0, $00	;2 0448
-   0444   00 f0 f0 00   
-   0448   00 00 20 90   	db	$00, $00, $20, $90, $00, $90, $10, $00	;3 0450
-   044c   00 90 10 00   
-   0450   00 00 70 f0   	db	$00, $00, $70, $f0, $00, $f0, $f0, $00	;4 0458
-   0454   00 f0 f0 00   
-   0458   00 00 00 00   	db	$00, $00, $00, $00, $00, $00, $00, $00	; 
-   045c   00 00 00 00   
-   0460                 DSKY_LINE:
-   0460   00 ff ff ff   	db	$00, $ff, $ff, $ff, $ff, $ff, $ff, $00	; 0469 (LINE)
-   0464   ff ff ff 00   
-   0468   00 00 00 00   	db	$00, $00, $00, $00, $00, $00, $00, $00	; 0470 (BLANK)
-   046c   00 00 00 00   
-   0470                 DSKY_R1:
-   0470   00 20 f0 f0   	db	$00, $20, $F0, $f0, $f0, $f0, $f0, $00	;0 0478 (REG1 +/- 3 -- 4 TOP)
-   0474   f0 f0 f0 00   
-   0478   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;1 0480
-   047c   90 90 90 00   
-   0480   00 f8 90 90   	db	$00, $F8, $90, $90, $90, $90, $90, $00	;2 0488
-   0484   90 90 90 00   
-   0488   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;3 0490
-   048c   90 90 90 00   
-   0490   00 20 f0 f0   	db	$00, $20, $f0, $f0, $f0, $f0, $f0, $00	;4 0498
-   0494   f0 f0 f0 00   
-   0498   00 00 00 00   	db	$00, $00, $00, $00, $00, $00, $00, $00	; 04A0 (BLANK)
-   049c   00 00 00 00   
-   04a0                 DSKY_R2:
-   04a0   00 20 f0 f0   	db	$00, $20, $f0, $f0, $f0, $f0, $f0, $00	;0 04A8 (REG2 +/- 3 -- 4 TOP)
-   04a4   f0 f0 f0 00   
-   04a8   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;1 04B0
-   04ac   90 90 90 00   
-   04b0   00 f8 90 90   	db	$00, $F8, $90, $90, $90, $90, $90, $00	;2 04B8
-   04b4   90 90 90 00   
-   04b8   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;3 04C0
-   04bc   90 90 90 00   
-   04c0   00 20 f0 f0   	db	$00, $20, $f0, $f0, $f0, $f0, $f0, $00	;4 04C8
-   04c4   f0 f0 f0 00   
-   04c8   00 00 00 00   	db	$00, $00, $00, $00, $00, $00, $00, $00	;04DO (BLANK)
-   04cc   00 00 00 00   
-   04d0                 DSKY_R3:
-   04d0   00 20 f0 f0   	db	$00, $20, $f0, $f0, $f0, $f0, $f0, $00	;0 04D8 (REG3 +/- 3 -- 4 TOP)
-   04d4   f0 f0 f0 00   
-   04d8   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;1 04EO
-   04dc   90 90 90 00   
-   04e0   00 f8 90 90   	db	$00, $F8, $90, $90, $90, $90, $90, $00	;2 04E8
-   04e4   90 90 90 00   
-   04e8   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;3 04F0
-   04ec   90 90 90 00   
-   04f0   00 20 f0 f0   	db	$00, $20, $f0, $f0, $f0, $f0, $f0, $00	;4 04F8
-   04f4   f0 f0 f0 00   
-   04f8   00 00 00 00    	db	$00, $00, $00, $00, $00, $00, $00, $00	;  0430 (BLANK) (0xFF is the end of Buffer)
-   04fc   00 00 00 00   
-                        
-                        
+   0530                 DSKY_L2: 
+   0530   00 00 60 f0   	db	$00, $00, $60, $f0, $00, $f0, $f0, $00	;0 0538 (VV=16  NN=65)
+   0534   00 f0 f0 00   
+   0538   00 00 20 80   	db	$00, $00, $20, $80, $00, $80, $80, $00	;1 0540
+   053c   00 80 80 00   
+   0540   00 00 20 f0   	db	$00, $00, $20, $f0, $00, $f0, $f0, $00	;2 0548
+   0544   00 f0 f0 00   
+   0548   00 00 20 90   	db	$00, $00, $20, $90, $00, $90, $10, $00	;3 0550
+   054c   00 90 10 00   
+   0550   00 00 70 f0   	db	$00, $00, $70, $f0, $00, $f0, $f0, $00	;4 0558
+   0554   00 f0 f0 00   
+   0558   00 00 00 00   	db	$00, $00, $00, $00, $00, $00, $00, $00	; 
+   055c   00 00 00 00   
+   0560                 DSKY_LINE:
+   0560   00 ff ff ff   	db	$00, $ff, $ff, $ff, $ff, $ff, $ff, $00	; 0569 (LINE)
+   0564   ff ff ff 00   
+   0568   00 00 00 00   	db	$00, $00, $00, $00, $00, $00, $00, $00	; 0570 (BLANK)
+   056c   00 00 00 00   
+   0570                 DSKY_R1:
+   0570   00 20 f0 f0   	db	$00, $20, $F0, $f0, $f0, $f0, $f0, $00	;0 0578 (REG1 +/- 3 -- 4 TOP)
+   0574   f0 f0 f0 00   
+   0578   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;1 0580
+   057c   90 90 90 00   
+   0580   00 f8 90 90   	db	$00, $F8, $90, $90, $90, $90, $90, $00	;2 0588
+   0584   90 90 90 00   
+   0588   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;3 0590
+   058c   90 90 90 00   
+   0590   00 20 f0 f0   	db	$00, $20, $f0, $f0, $f0, $f0, $f0, $00	;4 0598
+   0594   f0 f0 f0 00   
+   0598   00 00 00 00   	db	$00, $00, $00, $00, $00, $00, $00, $00	; 05A0 (BLANK)
+   059c   00 00 00 00   
+   05a0                 DSKY_R2:
+   05a0   00 20 f0 f0   	db	$00, $20, $f0, $f0, $f0, $f0, $f0, $00	;0 05A8 (REG2 +/- 3 -- 4 TOP)
+   05a4   f0 f0 f0 00   
+   05a8   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;1 05B0
+   05ac   90 90 90 00   
+   05b0   00 f8 90 90   	db	$00, $F8, $90, $90, $90, $90, $90, $00	;2 05B8
+   05b4   90 90 90 00   
+   05b8   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;3 05C0
+   05bc   90 90 90 00   
+   05c0   00 20 f0 f0   	db	$00, $20, $f0, $f0, $f0, $f0, $f0, $00	;4 05C8
+   05c4   f0 f0 f0 00   
+   05c8   00 00 00 00   	db	$00, $00, $00, $00, $00, $00, $00, $00	;05DO (BLANK)
+   05cc   00 00 00 00   
+   05d0                 DSKY_R3:
+   05d0   00 20 f0 f0   	db	$00, $20, $f0, $f0, $f0, $f0, $f0, $00	;0 05D8 (REG3 +/- 3 -- 4 TOP)
+   05d4   f0 f0 f0 00   
+   05d8   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;1 05EO
+   05dc   90 90 90 00   
+   05e0   00 f8 90 90   	db	$00, $F8, $90, $90, $90, $90, $90, $00	;2 05E8
+   05e4   90 90 90 00   
+   05e8   00 20 90 90   	db	$00, $20, $90, $90, $90, $90, $90, $00	;3 05F0
+   05ec   90 90 90 00   
+   05f0   00 20 f0 f0   	db	$00, $20, $f0, $f0, $f0, $f0, $f0, $00	;4 05F8
+   05f4   f0 f0 f0 00   
+   05f8   00 00 00 00    	db	$00, $00, $00, $00, $00, $00, $00, $00	;  0530 (BLANK) (0xFF is the end of Buffer)
+   05fc   00 00 00 00   
                         
                         
-   0500                 	END
-0301  AGC_PROC1     0300  AGC_RET       0099  CDX           0177  CLRCH     
-0261  CLRTST        037e  CLRVN         0098  CMD           024a  CONS      
-0150  CONTCH        0200  CPRET         0201  CPROC         03c8  DEL1_RET  
-03c9  DELAY1        005e  DIGIT         0126  DISPCH        00c3  DISPLAY   
-03ce  DLY01         0400  DSKY_L1       0430  DSKY_L2       0460  DSKY_LINE 
-0470  DSKY_R1       04a0  DSKY_R2       04d0  DSKY_R3       026b  ENTER     
-016d  FIXCH         0173  FLASH         0079  FXDISP        036e  GODNOPR   
-009a  HHMMSS        017e  INDC_A        002b  KES           0041  KEY       
-0095  KEYS          0020  L0014         0053  L001C         0054  L001D     
-0022  L0024         0116  L0066         0122  L0067         012e  L0079     
-013a  L0080         01db  L009A         00da  MET_OFFSETS    019c  MINUS     
-0147  NEXCOL        02d8  NEXNV         0075  NEXTDIG       033d  NEXT_DIG  
-02ac  NOHEX         004e  NOKEY         02cb  NOUCMD        00c0  NOUN      
-022d  NOUNS         00a6  NOUN_VERB     0233  NV001         02d1  NVCM1     
-00d6  NV_OFFSETS    0198  PLUS          00c2  PROG0         00d3  PROG_OFFSET
-00a0  PROG_REG      024c  PROS          00ac  REG1          00b2  REG2      
-00b8  REG3          00e0  REG_LINE      03bf  S3LOOP        03ae  SET3      
-03ad  SET3_RET      0189  SIGN          028c  SIGNS         0094  STACK     
-0021  STARTCLK      01cd  TV_INT        01cb  TV_INT_ret    0325  V16       
-0349  V21           034d  V22           0351  V23           0353  V2N       
-0364  V2XCLRL       0386  V35           00be  VERB          0225  VERBS     
-02c3  VERCMD        01c6  VIDEO_LINE    0102  VIP_DS        0100  VIP_DS_RET
-02e3  WRTNV         019e  WS000         019f  WS001         01ab  WS002     
-01b9  WSBAR         8110  bitmap        8100  index         0000  r0        
-0001  r1            000a  r10           000b  r11           000c  r12       
-000d  r13           000e  r14           000f  r15           0002  r2        
-0003  r3            0004  r4            0005  r5            0006  r6        
-0007  r7            0008  r8            0009  r9            000a  ra        
-000b  rb            000c  rc            000d  rd            000e  re        
-000f  rf            0000  start         
+                        
+                        
+   0600                 	END
+0000  ?             0301  AGC_PROC1     0300  AGC_RET       028a  ASSEM     
+009a  CCNT          0099  CDEX          04ab  CFLASHVN      044d  CHKCMD    
+0360  CHK_NOUNS     0332  CLR3          0177  CLRCH         0271  CLRTST    
+03ba  CLRVN         0098  CMD           044c  CMRET         024f  CONS      
+0150  CONTCH        0200  CPRET         0201  CPROC         005e  DIGIT     
+0126  DISPCH        00c4  DISPLAY       0500  DSKY_L1       0530  DSKY_L2   
+0560  DSKY_LINE     0570  DSKY_R1       05a0  DSKY_R2       05d0  DSKY_R3   
+0283  ENTER         016d  FIXCH         0173  FLASH         0488  FLASHVN   
+0079  FXDISP        02d4  GETDIG        009b  HH            009b  HHMMSS    
+017e  INDC_A        002b  KES           0041  KEY           0095  KEYS      
+0020  L0014         0053  L001C         0054  L001D         0022  L0024     
+0116  L0066         0122  L0067         012e  L0079         013a  L0080     
+01db  L009A         036f  LOAD_MET      00db  MET_OFFSETS    019c  MINUS     
+009d  MM            04e6  MOV22         04f3  MOV23         0147  NEXCOL    
+0477  NEXNV         0075  NEXTDIG       0375  NEXT_DIG      03aa  NOGO      
+02cb  NOHEX         004e  NOKEY         046a  NOUCMD        00c1  NOUN      
+022d  NOUNS         00a7  NOUN_VERB     0233  NV001         0470  NVCM1     
+00d7  NV_OFFSETS    0198  PLUS          00c3  PROG0         00d4  PROG_OFFSET
+00a1  PROG_REG      025c  PROS          00ad  REG1          00b3  REG2      
+00b9  REG3          00e1  REG_LINE      0424  RET_WRDEC     041b  S3LOOP    
+04f9  SAV01         04ff  SAV02         043f  SAVDIG        04ca  SAVTIME   
+0401  SET3          0400  SET3_RET      0416  SETCLR        0414  SETPLS    
+0189  SIGN          02ab  SIGNS         009f  SS            0094  STACK     
+0021  STARTCLK      01cd  TV_INT        01cb  TV_INT_ret    032a  V16       
+0381  V21           0385  V22           0389  V23           038b  V2N       
+03a0  V2XCLRL       03c9  V35           032f  V36           00bf  VERB      
+0225  VERBS         0462  VERCMD        01c6  VIDEO_LINE    0102  VIP_DS    
+0100  VIP_DS_RET    02dd  VNCMD         0425  WRDEC         0482  WRTNV     
+019e  WS000         019f  WS001         01ab  WS002         01b9  WSBAR     
+8110  bitmap        8100  index         0000  r0            0001  r1        
+000a  r10           000b  r11           000c  r12           000d  r13       
+000e  r14           000f  r15           0002  r2            0003  r3        
+0004  r4            0005  r5            0006  r6            0007  r7        
+0008  r8            0009  r9            000a  ra            000b  rb        
+000c  rc            000d  rd            000e  re            000f  rf        
+0000  start         0000  w             
 
