@@ -12,13 +12,14 @@
 ;	Checksum:	688D
 ;	CRC-32:	E571B87A
 ;	Versions:
-;	Date:		Tuesday, July 21, 2015, 11:10:53 PM 
+;	Date:		Saturday, August 01, 2015 -> Update: 8/4/15
 ;	CPU:		RCA 1802 (1802 COSMAC family)
 ;
 ;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
 
 ;--------------------------------------------------------------------------
 ;	Versions:
+;	1.4A	Date:   Sunday August 02, 2015.  Note minor edits 8/4/15 : Move Seconds in VERB 23 Storage
 ;	1.3	Date:	Tuesday, July 21, 2015, 11:10:53 PM - Added NOUNs 65, 36, Keys:  "D", "E", "F" 
 ;	1.2 	Date:	Sunday, July 19, 2015, 09:44:35 PM - First Release. Only VERBs 16, 35, 36, KEYs "A", "B"
 ;	1.1 	Date:	Saturday, July 11, 2015, 12:43:52 PM - MET Clock with formatting
@@ -1807,15 +1808,15 @@ MOV22:
 	glo	rf
 	xri	$01
 	bnz	MOV23
-	ldi	LOW REG2+4	;MIN
+	ldi	LOW REG2+4	;Minutes
 	plo	r4
 	ldi	LOW MM
 	plo	r5
 	br	SAV01
 MOV23:
-	ldi	LOW REG2+4	;MIN
+	ldi	LOW REG3+4	;Seconds
 	plo	r4
-	ldi	LOW MM
+	ldi	LOW SS
 	plo	r5
 SAV01:
 	ldn	r4
@@ -1826,7 +1827,7 @@ SAV01:
 	str	r5
 SAV02:
 	sep	rc
-
+;*****NOTE: line 1829 is at the 256- byte page limit $04FF! 
 ;=========================================================================
 ;=============================PAGE 0500===================================
 ;=========================================================================
