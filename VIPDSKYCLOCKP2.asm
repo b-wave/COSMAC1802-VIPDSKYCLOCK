@@ -12,14 +12,13 @@
 ;	Checksum:	688D
 ;	CRC-32:	E571B87A
 ;	Versions:
-;	Date:		Saturday, August 01, 2015 -> Update: 8/4/15
+;	Date:		Tuesday, July 21, 2015, 11:10:53 PM 
 ;	CPU:		RCA 1802 (1802 COSMAC family)
 ;
 ;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
 
 ;--------------------------------------------------------------------------
 ;	Versions:
-;	1.4A	Date:   Sunday August 02, 2015.  Note minor edits 8/4/15 : Move Seconds in VERB 23 Storage
 ;	1.3	Date:	Tuesday, July 21, 2015, 11:10:53 PM - Added NOUNs 65, 36, Keys:  "D", "E", "F" 
 ;	1.2 	Date:	Sunday, July 19, 2015, 09:44:35 PM - First Release. Only VERBs 16, 35, 36, KEYs "A", "B"
 ;	1.1 	Date:	Saturday, July 11, 2015, 12:43:52 PM - MET Clock with formatting
@@ -1639,7 +1638,19 @@ SAVDIG:
 	str	r5		;Save it in memory R7 -> M[R5]
 	br	RET_WRDEC	;Done with this digit
 
-;////////NEW///////
+;*********************************************************************
+;                      SUBROUTINE: CHKCMD
+;*********************************************************************
+;USE: Checks for "A" VERB or "B" NOUN Command 
+;CALL: From HEX (Only digits A - F should be passed 
+;REG Used:
+;R(D) = PC
+;R(C) = CALLING PC (Don't Use)
+;R(4) = MEMORY location for INDEX
+;R(5) = MEMORY location for COUNTER
+;R(6) = INDEX pointer REG
+;*********************************************************************
+
 CMRET:
 	sep	rc
 CHKCMD:
@@ -1698,6 +1709,17 @@ WRTNV:
 	ani	$0F	; make double sure no control in MSB
 	str	r4
 	br	CMRET
+;*********************************************************************
+;                      SUBROUTINE: FLASHVN
+;*********************************************************************
+;USE: Sets the 
+;CALL: From CMD Processing
+;REG Used:
+;R(D) = PC
+;R(C) = CALLING PC (Don't Use)
+;R(4) = MEMORY POINTER
+;*********************************************************************
+
 
 FLASHVN:
 	ldi	HIGH NOUN_VERB
@@ -1731,6 +1753,16 @@ FLASHVN:
 
 	sep	rd
 
+;*********************************************************************
+;                      SUBROUTINE: FLASHVN
+;*********************************************************************
+;USE: Sets the 
+;CALL: From CMD Processing
+;REG Used:
+;R(D) = PC
+;R(C) = CALLING PC (Don't Use)
+;R(5) = MEMORY POINTER
+;*********************************************************************
 CFLASHVN:
 
 	ldi	LOW NOUN_VERB+1	; Get current VERB Nybbles
@@ -1781,53 +1813,76 @@ CFLASHVN:
 ;	inc	r5
 ;	glo	rf
 ;	str	r5
+
+;*********************************************************************
+;                      SUBROUTINE: SAVTIME
+;*********************************************************************
+;USE: Sets the TIME, Moves HHMSS -> REG1, 2 or 3 based on the current
+;Verb in use: 21, 22, or 23. 
+;CALL: From KEY / CMD Processing [E] or [F] keys
+;
+;REGISTER USE:
+;R(D) = PC
+;R(C) = CALLING PC (Don't Use)
+;R(4) = MEMORY HHMMSS SOURCE POINTER
+;R(5) = MEMORY REGn POINTER
+;R(F) = TEMP Storage - Holds the LSB for Jump table
+;*********************************************************************
+
 SAVTIME:
 ;	ldi	HIGH NOUN_VERB	;Get the pointer to Verb Reg
 ;	phi	r4			;to R(4.1)
 	ldi	LOW NOUN_VERB+1
 	plo	r4
 	ldn	r4
-	ani	$0F
-	xri	$02
-	bnz	SAV02
+	ani	$0F		;Clears the old control nibble
+	xri	$02		;Check for a 20 VERB
+	bnz	SAVEXIT		;Not a save -> EXIT
 
-	inc	r4
+	inc	r4		;Move to VERB LSB
 	ldn	r4
-	ani	$0F
-	plo	rf
+	ani	$0F		;Clears the old control nibble
+	plo	rf		;Hold LSB as index
 
-	glo	rf
+	glo	rf		;is it VERB 21?
 	xri	$01
-	bnz	MOV22
-	ldi	LOW REG1+4	;Hours
+	bnz	MOV22		;No Check for next verb...
+
+	ldi	LOW REG1+4	;Yes save R1 -> Hours
 	plo	r4
 	ldi	LOW HH
 	plo	r5
 	br	SAV01
+
 MOV22:
-	glo	rf
-	xri	$01
+	glo	rf	;is it VERB 22?
+	xri	$02
 	bnz	MOV23
-	ldi	LOW REG2+4	;Minutes
+	ldi	LOW REG2+4	;Yes it is Save R2 -> MIN
 	plo	r4
 	ldi	LOW MM
 	plo	r5
 	br	SAV01
+
 MOV23:
-	ldi	LOW REG3+4	;Seconds
+	ldi	LOW REG3+4	;We'll Assume it is SEC
 	plo	r4
 	ldi	LOW SS
 	plo	r5
-SAV01:
-	ldn	r4
-	str	r5
-	inc	r4
+
+;This moves the selected REGx -> HH , MM, or SS
+;Sourece is R4, Destinatio is R5
+SAV01:	
+	ldn	r4	;pick up RTC
+	str	r5	;save in REGn
+	inc	r4	;Next Digit
 	inc	r5
-	ldn	r4
+	ldn	r4	;Move it
 	str	r5
-SAV02:
+;Return to calling key processor [E] or [C] key
+SAVEXIT:
 	sep	rc
-;*****NOTE: line 1829 is at the 256- byte page limit $04FF! 
+
 ;=========================================================================
 ;=============================PAGE 0500===================================
 ;=========================================================================
