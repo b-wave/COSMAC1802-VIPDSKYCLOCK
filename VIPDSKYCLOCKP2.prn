@@ -1,4 +1,4 @@
-   0000                 ;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
+                        ;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
                         ;
                         ;	File:		VIPDSKYCLOCKP2.asm
                         ;
@@ -22,7 +22,7 @@
                         ;	1.3	Date:	Tuesday, July 21, 2015, 11:10:53 PM - Added NOUNs 65, 36, Keys:  "D", "E", "F" 
                         ;	1.2 	Date:	Sunday, July 19, 2015, 09:44:35 PM - First Release. Only VERBs 16, 35, 36, KEYs "A", "B"
                         ;	1.1 	Date:	Saturday, July 11, 2015, 12:43:52 PM - MET Clock with formatting
-   0000                 ;	1.0 	Date:	Sunday, Sunday, June 28, 2015, 8:16:02 AM - MET Clock Display only
+                        ;	1.0 	Date:	Sunday, Sunday, June 28, 2015, 8:16:02 AM - MET Clock Display only
                         ;
                         ;****************************(DO NOT MODIFY)**************************************
    0000                 r0		EQU	0	;DMA address 
@@ -1643,7 +1643,19 @@
    0449   55            	str	r5		;Save it in memory R7 -> M[R5]
    044a   30 24         	br	RET_WRDEC	;Done with this digit
                         
-                        ;////////NEW///////
+                        ;*********************************************************************
+                        ;                      SUBROUTINE: CHKCMD
+                        ;*********************************************************************
+                        ;USE: Checks for "A" VERB or "B" NOUN Command 
+                        ;CALL: From HEX (Only digits A - F should be passed 
+                        ;REG Used:
+                        ;R(D) = PC
+                        ;R(C) = CALLING PC (Don't Use)
+                        ;R(4) = MEMORY location for INDEX
+                        ;R(5) = MEMORY location for COUNTER
+                        ;R(6) = INDEX pointer REG
+                        ;*********************************************************************
+                        
    044c                 CMRET:
    044c   dc            	sep	rc
    044d                 CHKCMD:
@@ -1702,6 +1714,17 @@
    0483   fa 0f         	ani	$0F	; make double sure no control in MSB
    0485   54            	str	r4
    0486   30 4c         	br	CMRET
+                        ;*********************************************************************
+                        ;                      SUBROUTINE: FLASHVN
+                        ;*********************************************************************
+                        ;USE: Sets the 
+                        ;CALL: From CMD Processing
+                        ;REG Used:
+                        ;R(D) = PC
+                        ;R(C) = CALLING PC (Don't Use)
+                        ;R(4) = MEMORY POINTER
+                        ;*********************************************************************
+                        
                         
    0488                 FLASHVN:
    0488   f8 00         	ldi	HIGH NOUN_VERB
@@ -1735,6 +1758,16 @@
                         
    04aa   dd            	sep	rd
                         
+                        ;*********************************************************************
+                        ;                      SUBROUTINE: FLASHVN
+                        ;*********************************************************************
+                        ;USE: Sets the 
+                        ;CALL: From CMD Processing
+                        ;REG Used:
+                        ;R(D) = PC
+                        ;R(C) = CALLING PC (Don't Use)
+                        ;R(5) = MEMORY POINTER
+                        ;*********************************************************************
    04ab                 CFLASHVN:
                         
    04ab   f8 a8         	ldi	LOW NOUN_VERB+1	; Get current VERB Nybbles
@@ -1785,51 +1818,74 @@
                         ;	inc	r5
                         ;	glo	rf
                         ;	str	r5
+                        
+                        ;*********************************************************************
+                        ;                      SUBROUTINE: SAVTIME
+                        ;*********************************************************************
+                        ;USE: Sets the TIME, Moves HHMSS -> REG1, 2 or 3 based on the current
+                        ;Verb in use: 21, 22, or 23. 
+                        ;CALL: From KEY / CMD Processing [E] or [F] keys
+                        ;
+                        ;REGISTER USE:
+                        ;R(D) = PC
+                        ;R(C) = CALLING PC (Don't Use)
+                        ;R(4) = MEMORY HHMMSS SOURCE POINTER
+                        ;R(5) = MEMORY REGn POINTER
+                        ;R(F) = TEMP Storage - Holds the LSB for Jump table
+                        ;*********************************************************************
+                        
    04ca                 SAVTIME:
                         ;	ldi	HIGH NOUN_VERB	;Get the pointer to Verb Reg
                         ;	phi	r4			;to R(4.1)
    04ca   f8 a8         	ldi	LOW NOUN_VERB+1
    04cc   a4            	plo	r4
    04cd   04            	ldn	r4
-   04ce   fa 0f         	ani	$0F
-   04d0   fb 02         	xri	$02
-   04d2   3a ff         	bnz	SAV02
+   04ce   fa 0f         	ani	$0F		;Clears the old control nibble
+   04d0   fb 02         	xri	$02		;Check for a 20 VERB
+   04d2   3a ff         	bnz	SAVEXIT		;Not a save -> EXIT
                         
-   04d4   14            	inc	r4
+   04d4   14            	inc	r4		;Move to VERB LSB
    04d5   04            	ldn	r4
-   04d6   fa 0f         	ani	$0F
-   04d8   af            	plo	rf
+   04d6   fa 0f         	ani	$0F		;Clears the old control nibble
+   04d8   af            	plo	rf		;Hold LSB as index
                         
-   04d9   8f            	glo	rf
+   04d9   8f            	glo	rf		;is it VERB 21?
    04da   fb 01         	xri	$01
-   04dc   3a e6         	bnz	MOV22
-   04de   f8 b1         	ldi	LOW REG1+4	;Hours
+   04dc   3a e6         	bnz	MOV22		;No Check for next verb...
+                        
+   04de   f8 b1         	ldi	LOW REG1+4	;Yes save R1 -> Hours
    04e0   a4            	plo	r4
    04e1   f8 9b         	ldi	LOW HH
    04e3   a5            	plo	r5
    04e4   30 f9         	br	SAV01
+                        
    04e6                 MOV22:
-   04e6   8f            	glo	rf
-   04e7   fb 01         	xri	$01
+   04e6   8f            	glo	rf	;is it VERB 22?
+   04e7   fb 02         	xri	$02
    04e9   3a f3         	bnz	MOV23
-   04eb   f8 b7         	ldi	LOW REG2+4	;MIN
+   04eb   f8 b7         	ldi	LOW REG2+4	;Yes it is Save R2 -> MIN
    04ed   a4            	plo	r4
    04ee   f8 9d         	ldi	LOW MM
    04f0   a5            	plo	r5
    04f1   30 f9         	br	SAV01
+                        
    04f3                 MOV23:
-   04f3   f8 b7         	ldi	LOW REG2+4	;MIN
+   04f3   f8 bd         	ldi	LOW REG3+4	;We'll Assume it is SEC
    04f5   a4            	plo	r4
-   04f6   f8 9d         	ldi	LOW MM
+   04f6   f8 9f         	ldi	LOW SS
    04f8   a5            	plo	r5
-   04f9                 SAV01:
-   04f9   04            	ldn	r4
-   04fa   55            	str	r5
-   04fb   14            	inc	r4
+                        
+                        ;This moves the selected REGx -> HH , MM, or SS
+                        ;Sourece is R4, Destinatio is R5
+   04f9                 SAV01:	
+   04f9   04            	ldn	r4	;pick up RTC
+   04fa   55            	str	r5	;save in REGn
+   04fb   14            	inc	r4	;Next Digit
    04fc   15            	inc	r5
-   04fd   04            	ldn	r4
+   04fd   04            	ldn	r4	;Move it
    04fe   55            	str	r5
-   04ff                 SAV02:
+                        ;Return to calling key processor [E] or [C] key
+   04ff                 SAVEXIT:
    04ff   dc            	sep	rc
                         
                         ;=========================================================================
@@ -1939,40 +1995,39 @@
                         
                         
    0600                 	END
-0000  ?             0301  AGC_PROC1     0300  AGC_RET       028a  ASSEM     
-009a  CCNT          0099  CDEX          04ab  CFLASHVN      044d  CHKCMD    
-0360  CHK_NOUNS     0332  CLR3          0177  CLRCH         0271  CLRTST    
-03ba  CLRVN         0098  CMD           044c  CMRET         024f  CONS      
-0150  CONTCH        0200  CPRET         0201  CPROC         005e  DIGIT     
-0126  DISPCH        00c4  DISPLAY       0500  DSKY_L1       0530  DSKY_L2   
-0560  DSKY_LINE     0570  DSKY_R1       05a0  DSKY_R2       05d0  DSKY_R3   
-0283  ENTER         016d  FIXCH         0173  FLASH         0488  FLASHVN   
-0079  FXDISP        02d4  GETDIG        009b  HH            009b  HHMMSS    
-017e  INDC_A        002b  KES           0041  KEY           0095  KEYS      
-0020  L0014         0053  L001C         0054  L001D         0022  L0024     
-0116  L0066         0122  L0067         012e  L0079         013a  L0080     
-01db  L009A         036f  LOAD_MET      00db  MET_OFFSETS    019c  MINUS     
-009d  MM            04e6  MOV22         04f3  MOV23         0147  NEXCOL    
-0477  NEXNV         0075  NEXTDIG       0375  NEXT_DIG      03aa  NOGO      
-02cb  NOHEX         004e  NOKEY         046a  NOUCMD        00c1  NOUN      
-022d  NOUNS         00a7  NOUN_VERB     0233  NV001         0470  NVCM1     
-00d7  NV_OFFSETS    0198  PLUS          00c3  PROG0         00d4  PROG_OFFSET
-00a1  PROG_REG      025c  PROS          00ad  REG1          00b3  REG2      
-00b9  REG3          00e1  REG_LINE      0424  RET_WRDEC     041b  S3LOOP    
-04f9  SAV01         04ff  SAV02         043f  SAVDIG        04ca  SAVTIME   
-0401  SET3          0400  SET3_RET      0416  SETCLR        0414  SETPLS    
-0189  SIGN          02ab  SIGNS         009f  SS            0094  STACK     
-0021  STARTCLK      01cd  TV_INT        01cb  TV_INT_ret    032a  V16       
-0381  V21           0385  V22           0389  V23           038b  V2N       
-03a0  V2XCLRL       03c9  V35           032f  V36           00bf  VERB      
-0225  VERBS         0462  VERCMD        01c6  VIDEO_LINE    0102  VIP_DS    
-0100  VIP_DS_RET    02dd  VNCMD         0425  WRDEC         0482  WRTNV     
-019e  WS000         019f  WS001         01ab  WS002         01b9  WSBAR     
-8110  bitmap        8100  index         0000  r0            0001  r1        
-000a  r10           000b  r11           000c  r12           000d  r13       
-000e  r14           000f  r15           0002  r2            0003  r3        
-0004  r4            0005  r5            0006  r6            0007  r7        
-0008  r8            0009  r9            000a  ra            000b  rb        
-000c  rc            000d  rd            000e  re            000f  rf        
-0000  start         0000  w             
+0301  AGC_PROC1     0300  AGC_RET       028a  ASSEM         009a  CCNT      
+0099  CDEX          04ab  CFLASHVN      044d  CHKCMD        0360  CHK_NOUNS 
+0332  CLR3          0177  CLRCH         0271  CLRTST        03ba  CLRVN     
+0098  CMD           044c  CMRET         024f  CONS          0150  CONTCH    
+0200  CPRET         0201  CPROC         005e  DIGIT         0126  DISPCH    
+00c4  DISPLAY       0500  DSKY_L1       0530  DSKY_L2       0560  DSKY_LINE 
+0570  DSKY_R1       05a0  DSKY_R2       05d0  DSKY_R3       0283  ENTER     
+016d  FIXCH         0173  FLASH         0488  FLASHVN       0079  FXDISP    
+02d4  GETDIG        009b  HH            009b  HHMMSS        017e  INDC_A    
+002b  KES           0041  KEY           0095  KEYS          0020  L0014     
+0053  L001C         0054  L001D         0022  L0024         0116  L0066     
+0122  L0067         012e  L0079         013a  L0080         01db  L009A     
+036f  LOAD_MET      00db  MET_OFFSETS    019c  MINUS         009d  MM        
+04e6  MOV22         04f3  MOV23         0147  NEXCOL        0477  NEXNV     
+0075  NEXTDIG       0375  NEXT_DIG      03aa  NOGO          02cb  NOHEX     
+004e  NOKEY         046a  NOUCMD        00c1  NOUN          022d  NOUNS     
+00a7  NOUN_VERB     0233  NV001         0470  NVCM1         00d7  NV_OFFSETS
+0198  PLUS          00c3  PROG0         00d4  PROG_OFFSET    00a1  PROG_REG  
+025c  PROS          00ad  REG1          00b3  REG2          00b9  REG3      
+00e1  REG_LINE      0424  RET_WRDEC     041b  S3LOOP        04f9  SAV01     
+043f  SAVDIG        04ff  SAVEXIT       04ca  SAVTIME       0401  SET3      
+0400  SET3_RET      0416  SETCLR        0414  SETPLS        0189  SIGN      
+02ab  SIGNS         009f  SS            0094  STACK         0021  STARTCLK  
+01cd  TV_INT        01cb  TV_INT_ret    032a  V16           0381  V21       
+0385  V22           0389  V23           038b  V2N           03a0  V2XCLRL   
+03c9  V35           032f  V36           00bf  VERB          0225  VERBS     
+0462  VERCMD        01c6  VIDEO_LINE    0102  VIP_DS        0100  VIP_DS_RET
+02dd  VNCMD         0425  WRDEC         0482  WRTNV         019e  WS000     
+019f  WS001         01ab  WS002         01b9  WSBAR         8110  bitmap    
+8100  index         0000  r0            0001  r1            000a  r10       
+000b  r11           000c  r12           000d  r13           000e  r14       
+000f  r15           0002  r2            0003  r3            0004  r4        
+0005  r5            0006  r6            0007  r7            0008  r8        
+0009  r9            000a  ra            000b  rb            000c  rc        
+000d  rd            000e  re            000f  rf            0000  start     
 
