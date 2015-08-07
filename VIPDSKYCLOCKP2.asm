@@ -1671,8 +1671,12 @@ CHKCMD:
 
 	ldi	$00	;clear it out if it was 
 	str	r5	;not a known command...
-
-
+;****NOTE this may be the issue causing DEC store to over write VERB.
+;     BUT there is  no more room on Page 0400 we are at 04FF 
+;     May be able to put the R4.1 initialize  after R5.1 above will get the 2 bytes needed to fixit
+;`````.....`````.....`````.....`````.....`````.....`````.....`````.....`````.....`````.....`````.....
+;	br	CMRET	;  Without the BR it drops into VERBs not exit
+;`````.....`````.....`````.....`````.....`````.....`````.....`````.....`````.....`````.....`````.....
 
 ;OK so we need a VERB Digit...
 VERCMD:
